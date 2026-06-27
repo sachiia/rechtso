@@ -477,6 +477,21 @@ export default function Feed() {
               })}
             </div>
           </div>
+
+          {/* Anwaltsverzeichnis CTA */}
+          <a href="/anwalt"
+            className="mt-4 block bg-[#0F2444] rounded-2xl p-5 sticky top-[calc(24px+var(--cat-height,0px))] shadow-sm hover:bg-[#1a3a6b] transition group">
+            <div className="flex items-center gap-2 mb-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              <span className="text-xs font-bold text-[#F59E0B] uppercase tracking-widest">Anwälte finden</span>
+            </div>
+            <div className="font-black text-white text-base leading-snug mb-3">Den richtigen Anwalt für Ihr Anliegen</div>
+            <div className="w-full bg-[#F59E0B] group-hover:bg-amber-400 text-[#0F2444] font-black text-sm py-2.5 rounded-xl text-center transition">
+              Anwaltsverzeichnis →
+            </div>
+          </a>
         </aside>
 
         <main className="flex-1 min-w-0">
