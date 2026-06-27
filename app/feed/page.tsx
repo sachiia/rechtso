@@ -478,20 +478,6 @@ export default function Feed() {
             </div>
           </div>
 
-          {/* Anwaltsverzeichnis CTA */}
-          <a href="/anwalt"
-            className="mt-4 block bg-[#0F2444] rounded-2xl p-5 sticky top-[calc(24px+var(--cat-height,0px))] shadow-sm hover:bg-[#1a3a6b] transition group">
-            <div className="flex items-center gap-2 mb-2">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              </svg>
-              <span className="text-xs font-bold text-[#F59E0B] uppercase tracking-widest">Anwälte finden</span>
-            </div>
-            <div className="font-black text-white text-base leading-snug mb-3">Den richtigen Anwalt für Ihr Anliegen</div>
-            <div className="w-full bg-[#F59E0B] group-hover:bg-amber-400 text-[#0F2444] font-black text-sm py-2.5 rounded-xl text-center transition">
-              Anwaltsverzeichnis →
-            </div>
-          </a>
         </aside>
 
         <main className="flex-1 min-w-0">
@@ -624,32 +610,19 @@ export default function Feed() {
               )}
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
-                <Icons.TrendingUp />Trending Themen
+            <a href="/anwalt"
+              className="block bg-[#0F2444] rounded-2xl p-5 hover:bg-[#1a3a6b] transition group">
+              <div className="flex items-center gap-2 mb-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                <span className="text-xs font-bold text-[#F59E0B] uppercase tracking-widest">Anwälte finden</span>
               </div>
-              <div className="space-y-1">
-                {Object.entries(categoryConfig).map(([cat, cfg]) => (
-                  <button key={cat} onClick={() => setActiveCategory(cat)}
-                    className="w-full flex items-center gap-3 text-left hover:bg-slate-50 rounded-xl px-3 py-3 transition">
-                    <span className={cfg.color}><CategoryIcon category={cat} /></span>
-                    <span className="text-base font-semibold text-slate-700">{cat}</span>
-                    <span className="ml-auto text-sm text-slate-300 font-bold">{posts.filter(p => p.category === cat).length}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Für Anwälte</div>
-              <p className="text-slate-600 text-sm leading-relaxed mb-4">Mandanten warten auf Ihre Expertise. Ab €39/Monat.</p>
-              <a href="/anwalt" className="block text-center bg-white border-2 border-slate-200 text-slate-600 font-bold text-sm py-3 rounded-xl hover:bg-slate-100 transition mb-2">
+              <div className="font-black text-white text-base leading-snug mb-3">Den richtigen Anwalt für Ihr Anliegen</div>
+              <div className="w-full bg-[#F59E0B] group-hover:bg-amber-400 text-[#0F2444] font-black text-sm py-2.5 rounded-xl text-center transition">
                 Anwaltsverzeichnis →
-              </a>
-              <a href="/pro" className="block text-center bg-white border-2 border-[#0F2444] text-[#0F2444] font-bold text-sm py-3 rounded-xl hover:bg-[#0F2444] hover:text-white transition">
-                Jetzt registrieren →
-              </a>
-            </div>
+              </div>
+            </a>
           </div>
         </aside>
       </div>
