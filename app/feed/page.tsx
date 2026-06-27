@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from '@/lib/supabase';
 
-// ── MODERN SVG ICONS ──
 const Icons = {
   Mietrecht: () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -84,6 +83,26 @@ const Icons = {
       <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
     </svg>
   ),
+  User: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+    </svg>
+  ),
+  LogOut: () => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+    </svg>
+  ),
+  Mail: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+    </svg>
+  ),
+  Lock: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+    </svg>
+  ),
 };
 
 const categories = ["Alle", "Mietrecht", "Arbeitsrecht", "Verkehrsrecht", "Abmahnung", "Vertragsrecht", "Familienrecht"];
@@ -133,6 +152,13 @@ type Post = {
   created_at: string;
 };
 
+type Profile = {
+  id: string;
+  handle: string;
+  questions_this_month: number;
+  month_year: string;
+};
+
 function timeAgo(dateStr: string) {
   const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
   if (diff < 60) return 'gerade eben';
@@ -158,14 +184,37 @@ export default function Feed() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("Alle");
-  const [quota, setQuota] = useState(2);
   const [showModal, setShowModal] = useState(false);
   const [selectedCat, setSelectedCat] = useState("");
   const [questionText, setQuestionText] = useState("");
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
-  useEffect(() => { fetchPosts(); }, []);
+  // ── AUTH STATE ──
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+
+  const quota = profile ? Math.max(0, 2 - profile.questions_this_month) : 2;
+
+  useEffect(() => {
+    fetchPosts();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) fetchProfile(session.user.id);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) fetchProfile(session.user.id);
+      else setProfile(null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   async function fetchPosts() {
     setLoading(true);
@@ -174,15 +223,72 @@ export default function Feed() {
     setLoading(false);
   }
 
+  async function fetchProfile(userId: string) {
+    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
+    if (data) {
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      if (data.month_year !== currentMonth) {
+        await supabase.from('profiles').update({ questions_this_month: 0, month_year: currentMonth }).eq('id', userId);
+        setProfile({ ...data, questions_this_month: 0, month_year: currentMonth });
+      } else {
+        setProfile(data);
+      }
+    }
+  }
+
+  async function handleSignUp() {
+    if (!authEmail || !authPassword) { setAuthError('Bitte E-Mail und Passwort eingeben.'); return; }
+    if (authPassword.length < 6) { setAuthError('Passwort muss mindestens 6 Zeichen haben.'); return; }
+    setAuthLoading(true);
+    setAuthError('');
+    const { error } = await supabase.auth.signUp({ email: authEmail, password: authPassword });
+    if (error) setAuthError(error.message);
+    else { setShowAuthModal(false); setAuthEmail(''); setAuthPassword(''); }
+    setAuthLoading(false);
+  }
+
+  async function handleLogin() {
+    if (!authEmail || !authPassword) { setAuthError('Bitte E-Mail und Passwort eingeben.'); return; }
+    setAuthLoading(true);
+    setAuthError('');
+    const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
+    if (error) setAuthError('E-Mail oder Passwort falsch.');
+    else { setShowAuthModal(false); setAuthEmail(''); setAuthPassword(''); }
+    setAuthLoading(false);
+  }
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+  }
+
+  function openQuestionModal(cat?: string) {
+    if (!user) {
+      setAuthMode('signup');
+      setShowAuthModal(true);
+      return;
+    }
+    if (cat) setSelectedCat(cat);
+    setShowModal(true);
+  }
+
   async function submitQuestion() {
     if (!questionText.trim() || !selectedCat) return;
-    const handles = ['Mieter', 'Nutzer', 'Bürger', 'Arbeitnehmer', 'Fahrer', 'Kunde'];
-    const handle = handles[Math.floor(Math.random() * handles.length)] + '_' + Math.floor(1000 + Math.random() * 9000);
+    if (!user || !profile) return;
+    if (profile.questions_this_month >= 2) return;
+
+    const handle = profile.handle;
     await supabase.from('posts').insert({ handle, category: selectedCat, content: questionText });
+
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    await supabase.from('profiles').update({
+      questions_this_month: profile.questions_this_month + 1,
+      month_year: currentMonth,
+    }).eq('id', user.id);
+
+    setProfile(p => p ? { ...p, questions_this_month: p.questions_this_month + 1 } : null);
     setShowModal(false);
-    setQuota(q => Math.max(0, q - 1));
-    setQuestionText("");
-    setSelectedCat("");
+    setQuestionText('');
+    setSelectedCat('');
     setSubmitted(true);
     fetchPosts();
     setTimeout(() => setSubmitted(false), 4000);
@@ -196,7 +302,7 @@ export default function Feed() {
     const cfg = categoryConfig[selectedPost.category] || { color: "text-slate-700", border: "border-l-slate-400", bg: "bg-slate-50", text: "text-slate-700" };
     return (
       <div className="min-h-screen bg-[#f0f2f5] font-sans">
-        <nav className="bg-[#0F2444] px-8 py-5 flex items-center gap-4 sticky top-0 z-10 shadow-lg">
+        <nav className="bg-[#0F2444] px-8 py-4 flex items-center gap-5 sticky top-0 z-20 shadow-lg">
           <span className="font-black text-2xl tracking-tight"><span className="text-white">Recht</span><span className="text-[#F59E0B]">So</span></span>
         </nav>
         <div className="bg-amber-50 border-b border-amber-200 text-center text-sm text-amber-800 font-medium py-2.5 px-4 flex items-center justify-center gap-2">
@@ -243,12 +349,11 @@ export default function Feed() {
                 <div>
                   <div className="font-bold text-[#0F2444] text-base">Dr. Katja Müller</div>
                   <div className="text-slate-400 text-sm">Rechtsanwältin · Hamburg</div>
-                  <div className="flex gap-2 mt-2 flex-wrap">
+                  <div className="flex gap-2 mt-2">
                     <span className="bg-teal-50 text-teal-700 border border-teal-200 text-xs font-bold px-2.5 py-1 rounded-md flex items-center gap-1.5">
                       <Icons.Check />Registrierung angegeben
                     </span>
                   </div>
-                  <div className="text-xs text-slate-300 mt-1.5">RAK Hamburg · Reg.-Nr. 04-28811 · <a href="https://www.brak.de" className="text-teal-500 hover:underline" target="_blank">BRAK prüfen ↗</a></div>
                 </div>
               </div>
               <p className="text-slate-600 text-base leading-relaxed border-t border-slate-100 pt-5 mb-5">
@@ -257,13 +362,10 @@ export default function Feed() {
               <button className="bg-[#0D9488] text-white text-sm font-bold px-6 py-3 rounded-xl hover:bg-teal-700 transition flex items-center gap-2">
                 <Icons.Send />Privates Gespräch anfragen
               </button>
-              <p className="text-xs text-slate-300 mt-2">Gespräch findet außerhalb von RechtSo statt.</p>
             </div>
           ) : (
             <div className="text-center py-16 text-slate-400 bg-white rounded-2xl border border-slate-200">
-              <div className="w-14 h-14 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3 text-slate-300">
-                <Icons.Chat />
-              </div>
+              <div className="w-14 h-14 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3 text-slate-300"><Icons.Chat /></div>
               <div className="font-semibold text-base">Noch keine Anwaltsantworten</div>
               <div className="text-sm mt-1">Anwälte werden in Kürze antworten.</div>
             </div>
@@ -277,17 +379,39 @@ export default function Feed() {
   return (
     <div className="min-h-screen bg-[#f0f2f5] font-sans">
 
-      {/* NAV — full width, no max-width */}
+      {/* NAV */}
       <nav className="bg-[#0F2444] px-8 py-4 flex items-center gap-5 sticky top-0 z-20 shadow-lg">
         <span className="font-black text-2xl tracking-tight flex-shrink-0"><span className="text-white">Recht</span><span className="text-[#F59E0B]">So</span></span>
         <div className="flex-1 relative">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40"><Icons.Search /></span>
           <input className="w-full bg-white/10 border border-white/20 rounded-xl pl-10 pr-4 py-2.5 text-white text-base placeholder-white/40 outline-none focus:bg-white/20 transition" placeholder="Mietrecht, Abmahnung, Kündigung..." />
         </div>
-        <button onClick={() => setShowModal(true)} className="bg-[#F59E0B] text-[#0F2444] font-black text-sm px-5 py-2.5 rounded-xl hover:bg-amber-400 transition flex-shrink-0 hidden sm:flex items-center gap-2">
-          <Icons.Plus />Frage stellen
-          <span className="bg-[#0F2444] text-[#F59E0B] text-xs font-black px-2 py-0.5 rounded-full">{quota}</span>
-        </button>
+
+        {/* NAV RIGHT: logged in vs logged out */}
+        {user && profile ? (
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <div className="flex items-center gap-2 bg-white/10 rounded-xl px-3 py-2">
+              <span className="text-white/50"><Icons.User /></span>
+              <span className="text-white text-sm font-bold">{profile.handle}</span>
+              <span className={`text-xs font-black px-2 py-0.5 rounded-full ${quota === 0 ? 'bg-red-500 text-white' : 'bg-[#F59E0B] text-[#0F2444]'}`}>{quota}</span>
+            </div>
+            <button onClick={handleSignOut} className="text-white/40 hover:text-white transition flex items-center gap-1.5 text-sm">
+              <Icons.LogOut />
+            </button>
+            <button onClick={() => openQuestionModal()} className="bg-[#F59E0B] text-[#0F2444] font-black text-sm px-4 py-2.5 rounded-xl hover:bg-amber-400 transition flex items-center gap-2 hidden sm:flex">
+              <Icons.Plus />Frage stellen
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button onClick={() => { setAuthMode('login'); setShowAuthModal(true); }} className="text-white/70 text-sm font-medium px-4 py-2 rounded-xl hover:text-white hover:bg-white/10 transition hidden sm:block">
+              Anmelden
+            </button>
+            <button onClick={() => { setAuthMode('signup'); setShowAuthModal(true); }} className="bg-[#F59E0B] text-[#0F2444] font-black text-sm px-4 py-2.5 rounded-xl hover:bg-amber-400 transition flex items-center gap-2">
+              <Icons.Plus />Kostenlos starten
+            </button>
+          </div>
+        )}
       </nav>
 
       {/* DISCLAIMER */}
@@ -295,7 +419,7 @@ export default function Feed() {
         <Icons.AlertTriangle /><span>Dies ist keine Rechtsberatung. Bitte konsultieren Sie einen zugelassenen Rechtsanwalt.</span>
       </div>
 
-      {/* HERO — full width */}
+      {/* HERO */}
       <div className="bg-[#0F2444] px-8 py-8">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
@@ -303,26 +427,17 @@ export default function Feed() {
             <p className="text-white/50 text-base mt-1">Echte Fälle · Echte Anwälte · 100% anonym</p>
           </div>
           <div className="flex gap-8">
-            <div className="text-center">
-              <div className="text-[#F59E0B] font-black text-2xl">{posts.length}</div>
-              <div className="text-white/40 text-sm">Fragen</div>
-            </div>
-            <div className="text-center">
-              <div className="text-[#F59E0B] font-black text-2xl">{posts.reduce((a, p) => a + p.answers_count, 0)}</div>
-              <div className="text-white/40 text-sm">Antworten</div>
-            </div>
-            <div className="text-center">
-              <div className="text-[#F59E0B] font-black text-2xl">100%</div>
-              <div className="text-white/40 text-sm">Anonym</div>
-            </div>
+            <div className="text-center"><div className="text-[#F59E0B] font-black text-2xl">{posts.length}</div><div className="text-white/40 text-sm">Fragen</div></div>
+            <div className="text-center"><div className="text-[#F59E0B] font-black text-2xl">{posts.reduce((a, p) => a + p.answers_count, 0)}</div><div className="text-white/40 text-sm">Antworten</div></div>
+            <div className="text-center"><div className="text-[#F59E0B] font-black text-2xl">100%</div><div className="text-white/40 text-sm">Anonym</div></div>
           </div>
         </div>
       </div>
 
-      {/* THREE COLUMNS — full width, no max-width cap */}
+      {/* THREE COLUMNS */}
       <div className="w-full px-6 py-6 pb-28 flex gap-6">
 
-        {/* LEFT SIDEBAR — fixed 280px */}
+        {/* LEFT SIDEBAR */}
         <aside className="hidden lg:block flex-shrink-0" style={{ width: '280px' }}>
           <div className="bg-white rounded-2xl border border-slate-200 p-5 sticky top-24 shadow-sm">
             <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Kategorien</div>
@@ -334,17 +449,11 @@ export default function Feed() {
                   <button key={cat} onClick={() => setActiveCategory(cat)}
                     className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-base font-semibold transition ${activeCategory === cat ? "bg-[#0F2444] text-white" : "text-slate-600 hover:bg-slate-50"}`}>
                     <span className="flex items-center gap-3">
-                      {cfg && (
-                        <span className={activeCategory === cat ? "text-white/60" : cfg.color}>
-                          <CategoryIcon category={cat} />
-                        </span>
-                      )}
+                      {cfg && <span className={activeCategory === cat ? "text-white/60" : cfg.color}><CategoryIcon category={cat} /></span>}
                       {!cfg && <span className="w-[18px]" />}
                       {cat}
                     </span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${activeCategory === cat ? "bg-white/20 text-white" : "bg-slate-100 text-slate-400"}`}>
-                      {count}
-                    </span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${activeCategory === cat ? "bg-white/20 text-white" : "bg-slate-100 text-slate-400"}`}>{count}</span>
                   </button>
                 );
               })}
@@ -352,10 +461,9 @@ export default function Feed() {
           </div>
         </aside>
 
-        {/* MAIN FEED — flex-1, fills remaining space */}
+        {/* MAIN FEED */}
         <main className="flex-1 min-w-0">
-
-          {/* MOBILE CATEGORY SCROLL */}
+          {/* Mobile category scroll */}
           <div className="flex gap-2 overflow-x-auto pb-2 mb-4 lg:hidden">
             {categories.map(cat => (
               <button key={cat} onClick={() => setActiveCategory(cat)}
@@ -365,35 +473,39 @@ export default function Feed() {
             ))}
           </div>
 
-          {/* ── FACEBOOK-STYLE PROMPT BOX ── */}
+          {/* FACEBOOK-STYLE PROMPT */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mb-4">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-[#0F2444] rounded-full flex items-center justify-center text-white flex-shrink-0">
-                <Icons.Scale />
+                {user && profile ? (
+                  <span className="text-sm font-black">{profile.handle.slice(0, 2).toUpperCase()}</span>
+                ) : (
+                  <Icons.Scale />
+                )}
               </div>
-              <button onClick={() => setShowModal(true)}
+              <button onClick={() => openQuestionModal()}
                 className="flex-1 bg-[#f0f2f5] hover:bg-slate-200 border border-transparent rounded-full px-5 py-3 text-left text-slate-400 text-base transition cursor-pointer font-medium">
-                Haben Sie eine Rechtsfrage? Anonym stellen…
+                {user ? `Was ist Ihre Rechtsfrage, ${profile?.handle}?` : 'Haben Sie eine Rechtsfrage? Anonym stellen…'}
               </button>
             </div>
             <div className="mt-4 pt-4 border-t border-slate-100 flex gap-2 flex-wrap">
               {["Mietrecht", "Abmahnung", "Arbeitsrecht"].map(cat => {
                 const cfg = categoryConfig[cat];
                 return (
-                  <button key={cat} onClick={() => { setSelectedCat(cat); setShowModal(true); }}
+                  <button key={cat} onClick={() => openQuestionModal(cat)}
                     className={`flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl ${cfg.bg} ${cfg.text} hover:opacity-80 transition`}>
                     <CategoryIcon category={cat} />{cat}
                   </button>
                 );
               })}
-              <button onClick={() => setShowModal(true)} className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 transition ml-auto">
+              <button onClick={() => openQuestionModal()} className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 transition ml-auto">
                 Weitere →
               </button>
             </div>
           </div>
 
           {submitted && (
-            <div className="bg-green-50 border border-green-200 rounded-2xl p-5 text-center mb-4 shadow-sm">
+            <div className="bg-green-50 border border-green-200 rounded-2xl p-5 text-center mb-4">
               <div className="font-bold text-green-800 flex items-center justify-center gap-2">
                 <span className="text-green-500"><Icons.Check /></span>Frage anonym veröffentlicht!
               </div>
@@ -408,7 +520,6 @@ export default function Feed() {
             </div>
             <select className="text-sm font-semibold text-slate-500 bg-white border border-slate-200 rounded-xl px-4 py-2 outline-none">
               <option>Neueste zuerst</option>
-              <option>Meiste Antworten</option>
             </select>
           </div>
 
@@ -448,11 +559,6 @@ export default function Feed() {
                       <span className={`text-sm font-semibold px-4 py-2 rounded-xl flex items-center gap-2 ${post.answers_count > 0 ? "bg-teal-50 text-teal-700 border border-teal-200" : "bg-slate-50 text-slate-400 border border-slate-200"}`}>
                         <Icons.Chat />{post.answers_count} Anwaltsantworten
                       </span>
-                      {post.answers_count > 0 && (
-                        <span className="text-sm font-bold text-teal-600 ml-auto flex items-center gap-2">
-                          <Icons.Send />Privat anfragen →
-                        </span>
-                      )}
                     </div>
                   </div>
                 );
@@ -461,21 +567,42 @@ export default function Feed() {
           )}
         </main>
 
-        {/* RIGHT SIDEBAR — fixed 320px */}
+        {/* RIGHT SIDEBAR */}
         <aside className="hidden xl:block flex-shrink-0" style={{ width: '320px' }}>
           <div className="space-y-4 sticky top-24">
-
-            {/* CTA CARD */}
             <div className="bg-[#0F2444] rounded-2xl p-6 text-white">
-              <div className="font-black text-xl mb-2">Rechtsfrage?</div>
-              <p className="text-white/60 text-sm leading-relaxed mb-5">Stelle deine Frage anonym. Echte Anwälte antworten — kostenlos.</p>
-              <button onClick={() => setShowModal(true)} className="w-full bg-[#F59E0B] text-[#0F2444] font-black text-base py-3.5 rounded-xl hover:bg-amber-400 transition flex items-center justify-center gap-2">
-                <Icons.Plus />Frage stellen
-              </button>
-              <div className="text-white/30 text-sm text-center mt-3">{quota} kostenlose Fragen verbleibend</div>
+              {user && profile ? (
+                <>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center font-black text-white text-sm">{profile.handle.slice(0,2).toUpperCase()}</div>
+                    <div>
+                      <div className="font-bold text-white">{profile.handle}</div>
+                      <div className="text-white/50 text-xs">Angemeldet</div>
+                    </div>
+                  </div>
+                  <div className="bg-white/10 rounded-xl p-3 mb-4 text-center">
+                    <div className={`font-black text-2xl ${quota === 0 ? 'text-red-400' : 'text-[#F59E0B]'}`}>{quota}</div>
+                    <div className="text-white/50 text-xs">Fragen verbleibend diesen Monat</div>
+                  </div>
+                  <button onClick={() => openQuestionModal()} disabled={quota === 0}
+                    className={`w-full font-black text-base py-3.5 rounded-xl transition flex items-center justify-center gap-2 ${quota === 0 ? 'bg-white/10 text-white/30 cursor-not-allowed' : 'bg-[#F59E0B] text-[#0F2444] hover:bg-amber-400'}`}>
+                    <Icons.Plus />{quota === 0 ? 'Limit erreicht' : 'Frage stellen'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="font-black text-xl mb-2">Rechtsfrage?</div>
+                  <p className="text-white/60 text-sm leading-relaxed mb-5">Stelle deine Frage anonym. Echte Anwälte antworten — kostenlos.</p>
+                  <button onClick={() => { setAuthMode('signup'); setShowAuthModal(true); }} className="w-full bg-[#F59E0B] text-[#0F2444] font-black text-base py-3.5 rounded-xl hover:bg-amber-400 transition flex items-center justify-center gap-2">
+                    <Icons.Plus />Kostenlos starten
+                  </button>
+                  <button onClick={() => { setAuthMode('login'); setShowAuthModal(true); }} className="w-full mt-2 text-white/50 text-sm py-2 hover:text-white transition">
+                    Bereits registriert? Anmelden
+                  </button>
+                </>
+              )}
             </div>
 
-            {/* TRENDING */}
             <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
               <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
                 <Icons.TrendingUp />Trending Themen
@@ -492,7 +619,6 @@ export default function Feed() {
               </div>
             </div>
 
-            {/* LAWYER CTA */}
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
               <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Für Anwälte</div>
               <p className="text-slate-600 text-sm leading-relaxed mb-4">Mandanten warten auf Ihre Expertise. Ab €39/Monat.</p>
@@ -504,9 +630,9 @@ export default function Feed() {
         </aside>
       </div>
 
-      {/* FAB (mobile) */}
+      {/* MOBILE FAB */}
       <div className="fixed bottom-6 left-4 right-4 max-w-md mx-auto z-20 sm:hidden">
-        <button onClick={() => setShowModal(true)}
+        <button onClick={() => openQuestionModal()}
           className="w-full bg-[#0F2444] text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-3 shadow-xl hover:bg-[#1a3a6b] transition">
           <Icons.Plus />Frage stellen
           <span className={`text-sm font-black px-2.5 py-1 rounded-full ${quota === 0 ? "bg-red-500 text-white" : "bg-[#F59E0B] text-[#0F2444]"}`}>
@@ -515,13 +641,84 @@ export default function Feed() {
         </button>
       </div>
 
-      {/* MODAL */}
+      {/* ── AUTH MODAL ── */}
+      {showAuthModal && (
+        <div className="fixed inset-0 bg-[#0F2444]/70 z-40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl">
+            {/* Tabs */}
+            <div className="flex bg-slate-100 rounded-2xl p-1 mb-7">
+              <button onClick={() => { setAuthMode('signup'); setAuthError(''); }}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition ${authMode === 'signup' ? 'bg-white text-[#0F2444] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
+                Registrieren
+              </button>
+              <button onClick={() => { setAuthMode('login'); setAuthError(''); }}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition ${authMode === 'login' ? 'bg-white text-[#0F2444] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
+                Anmelden
+              </button>
+            </div>
+
+            {authMode === 'signup' ? (
+              <>
+                <div className="font-black text-[#0F2444] text-2xl mb-1">Kostenlos starten</div>
+                <p className="text-slate-400 text-sm mb-6">2 Fragen pro Monat · Anonym · Kein Abo</p>
+              </>
+            ) : (
+              <>
+                <div className="font-black text-[#0F2444] text-2xl mb-1">Willkommen zurück</div>
+                <p className="text-slate-400 text-sm mb-6">Melden Sie sich an, um fortzufahren.</p>
+              </>
+            )}
+
+            <div className="space-y-3 mb-4">
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Mail /></span>
+                <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
+                  className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition text-slate-700"
+                  placeholder="E-Mail-Adresse" />
+              </div>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Lock /></span>
+                <input type="password" value={authPassword} onChange={e => setAuthPassword(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && (authMode === 'signup' ? handleSignUp() : handleLogin())}
+                  className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition text-slate-700"
+                  placeholder={authMode === 'signup' ? 'Passwort (min. 6 Zeichen)' : 'Passwort'} />
+              </div>
+            </div>
+
+            {authError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-sm text-red-600 flex items-center gap-2">
+                <Icons.AlertTriangle />{authError}
+              </div>
+            )}
+
+            {authMode === 'signup' && (
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-4 text-xs text-slate-500">
+                Nach der Registrierung wird Ihnen automatisch ein anonymes Handle zugewiesen (z.B. Mieter_4821).
+              </div>
+            )}
+
+            <button onClick={authMode === 'signup' ? handleSignUp : handleLogin}
+              disabled={authLoading}
+              className="w-full bg-[#0F2444] text-white font-black py-4 rounded-xl text-base hover:bg-[#1a3a6b] transition disabled:opacity-50 mb-3">
+              {authLoading ? 'Bitte warten...' : authMode === 'signup' ? 'Jetzt registrieren' : 'Anmelden'}
+            </button>
+            <button onClick={() => { setShowAuthModal(false); setAuthError(''); setAuthEmail(''); setAuthPassword(''); }}
+              className="w-full py-3 text-slate-400 text-sm hover:text-slate-600 transition">
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── QUESTION MODAL ── */}
       {showModal && (
         <div className="fixed inset-0 bg-[#0F2444]/60 z-30 flex items-end sm:items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-full max-w-lg p-7 max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-6 sm:hidden" />
             <div className="font-black text-[#0F2444] text-2xl mb-1">Rechtsfrage stellen</div>
-            <div className="text-slate-400 text-sm mb-6">Noch <strong className="text-[#0F2444]">{quota}</strong> kostenlose Fragen diesen Monat.</div>
+            <div className="text-slate-400 text-sm mb-6">
+              Als <strong className="text-[#0F2444]">{profile?.handle}</strong> · noch <strong className="text-[#0F2444]">{quota}</strong> Fragen diesen Monat
+            </div>
             <p className="text-xs font-bold text-slate-500 mb-3 uppercase tracking-widest">Rechtsgebiet wählen:</p>
             <div className="grid grid-cols-2 gap-2.5 mb-6">
               {["Mietrecht", "Arbeitsrecht", "Verkehrsrecht", "Abmahnung", "Vertragsrecht", "Familienrecht"].map(cat => {
@@ -538,8 +735,8 @@ export default function Feed() {
             <p className="text-xs font-bold text-slate-500 mb-3 uppercase tracking-widest">Ihre Situation:</p>
             <textarea value={questionText} onChange={e => setQuestionText(e.target.value)}
               className="w-full border-2 border-slate-200 rounded-xl p-4 text-base font-sans resize-none outline-none min-h-36 text-slate-700 focus:border-[#0F2444] transition leading-relaxed"
-              placeholder="Beschreiben Sie Ihre Situation so genau wie möglich. Keine persönlichen Daten (Name, Adresse, Aktenzeichen) angeben." />
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 my-5 text-sm text-amber-800 leading-relaxed flex items-start gap-2">
+              placeholder="Beschreiben Sie Ihre Situation so genau wie möglich. Keine persönlichen Daten angeben." />
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 my-5 text-sm text-amber-800 flex items-start gap-2">
               <span className="flex-shrink-0 mt-0.5"><Icons.AlertTriangle /></span>
               <span>Ihre Frage wird anonym veröffentlicht. Dies ist keine Rechtsberatung.</span>
             </div>
@@ -547,7 +744,8 @@ export default function Feed() {
               <button onClick={() => setShowModal(false)} className="flex-1 py-3.5 border-2 border-slate-200 rounded-xl text-slate-500 font-semibold text-base hover:bg-slate-50 transition">
                 Abbrechen
               </button>
-              <button onClick={submitQuestion} className="flex-[2] py-3.5 bg-[#0F2444] text-white font-black rounded-xl text-base hover:bg-[#1a3a6b] transition flex items-center justify-center gap-2">
+              <button onClick={submitQuestion} disabled={!questionText.trim() || !selectedCat}
+                className="flex-[2] py-3.5 bg-[#0F2444] text-white font-black rounded-xl text-base hover:bg-[#1a3a6b] transition disabled:opacity-40 flex items-center justify-center gap-2">
                 <Icons.Send />Anonym veröffentlichen
               </button>
             </div>
