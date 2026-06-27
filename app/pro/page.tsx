@@ -337,37 +337,37 @@ export default function Pro() {
                     <div className="space-y-3">
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.User /></span>
-                        <input value={authName} onChange={e => setAuthName(e.target.value)}
+                        <input type="text" name="fullname" autoComplete="name" value={authName} onChange={e => setAuthName(e.target.value)}
                           className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition"
                           placeholder="Vollständiger Name *" />
                       </div>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Mail /></span>
-                        <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
+                        <input type="email" name="email" autoComplete="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
                           className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition"
                           placeholder="E-Mail-Adresse *" />
                       </div>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Lock /></span>
-                        <input type="password" value={authPassword} onChange={e => setAuthPassword(e.target.value)}
+                        <input type="password" name="new-password" autoComplete="new-password" value={authPassword} onChange={e => setAuthPassword(e.target.value)}
                           className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition"
                           placeholder="Passwort (min. 6 Zeichen) *" />
                       </div>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Badge /></span>
-                        <input value={authRak} onChange={e => setAuthRak(e.target.value)}
+                        <input type="text" name="rak" autoComplete="off" value={authRak} onChange={e => setAuthRak(e.target.value)}
                           className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition"
                           placeholder="RAK-Nummer *" />
                       </div>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.MapPin /></span>
-                        <input value={authCity} onChange={e => setAuthCity(e.target.value)}
+                        <input type="text" name="city" autoComplete="address-level2" value={authCity} onChange={e => setAuthCity(e.target.value)}
                           className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition"
                           placeholder="Stadt *" />
                       </div>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Briefcase /></span>
-                        <input value={authFirm} onChange={e => setAuthFirm(e.target.value)}
+                        <input type="text" name="organization" autoComplete="organization" value={authFirm} onChange={e => setAuthFirm(e.target.value)}
                           className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition"
                           placeholder="Kanzleiname (optional)" />
                       </div>
