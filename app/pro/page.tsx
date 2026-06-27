@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { supabase } from '@/lib/supabase';
 
 const GERMAN_CITIES = [
@@ -14,20 +14,15 @@ const GERMAN_CITIES = [
 ];
 
 const AVATAR_COLORS = [
-  { bg: "bg-teal-500",  hex: "#14B8A6" },
-  { bg: "bg-blue-500",  hex: "#3B82F6" },
-  { bg: "bg-violet-500",hex: "#8B5CF6" },
-  { bg: "bg-rose-500",  hex: "#F43F5E" },
-  { bg: "bg-amber-500", hex: "#F59E0B" },
-  { bg: "bg-emerald-500",hex:"#10B981" },
+  { bg: "bg-teal-500",   hex: "#14B8A6" },
+  { bg: "bg-blue-500",   hex: "#3B82F6" },
+  { bg: "bg-violet-500", hex: "#8B5CF6" },
+  { bg: "bg-rose-500",   hex: "#F43F5E" },
+  { bg: "bg-amber-500",  hex: "#F59E0B" },
+  { bg: "bg-emerald-500",hex: "#10B981" },
 ];
 
 const Icons = {
-  Scale: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="12" y1="3" x2="12" y2="21"/><path d="M3 6l9-3 9 3"/><path d="M6 15l-3-9 9 3"/><path d="M18 15l3-9-9 3"/><path d="M3 15h6"/><path d="M15 15h6"/>
-    </svg>
-  ),
   Mail: () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
@@ -59,7 +54,7 @@ const Icons = {
     </svg>
   ),
   VerifiedBadge: ({ size = 16 }: { size?: number }) => (
-    <svg width={size} height={size} viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width={size} height={size} viewBox="0 0 22 22" fill="none">
       <circle cx="11" cy="11" r="11" fill="#1D9BF0"/>
       <path d="M6.5 11.5L9.5 14.5L15.5 8" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
@@ -94,8 +89,13 @@ const Icons = {
       <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
     </svg>
   ),
+  Camera: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/>
+    </svg>
+  ),
   Palette: () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>
       <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 011.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>
     </svg>
@@ -103,6 +103,11 @@ const Icons = {
   ChevronDown: () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="6 9 12 15 18 9"/>
+    </svg>
+  ),
+  Loader: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin">
+      <line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
     </svg>
   ),
 };
@@ -116,6 +121,7 @@ type LawyerProfile = {
   city: string;
   role: string;
   avatar_color: string | null;
+  avatar_url: string | null;
 };
 
 type Post = {
@@ -153,14 +159,28 @@ function timeAgo(dateStr: string) {
   return `vor ${Math.floor(diff / 86400)} Tagen`;
 }
 
-function getAvatarColor(profile: LawyerProfile) {
-  if (profile.avatar_color) {
-    const match = AVATAR_COLORS.find(c => c.hex === profile.avatar_color);
-    if (match) return match.bg;
-  }
-  // derive from name
+function getAvatarHex(profile: LawyerProfile) {
+  if (profile.avatar_color) return profile.avatar_color;
   const idx = (profile.display_name?.charCodeAt(0) || 0) % AVATAR_COLORS.length;
-  return AVATAR_COLORS[idx].bg;
+  return AVATAR_COLORS[idx].hex;
+}
+
+function Avatar({ profile, size = 32, className = '' }: { profile: LawyerProfile; size?: number; className?: string }) {
+  const initials = (profile.display_name || 'A').slice(0, 2).toUpperCase();
+  const hex = getAvatarHex(profile);
+  if (profile.avatar_url) {
+    return (
+      <img src={profile.avatar_url} alt={initials}
+        className={`rounded-xl object-cover flex-shrink-0 ${className}`}
+        style={{ width: size, height: size }} />
+    );
+  }
+  return (
+    <div className={`rounded-xl flex items-center justify-center text-white font-black flex-shrink-0 ${className}`}
+      style={{ width: size, height: size, backgroundColor: hex, fontSize: size * 0.3 }}>
+      {initials}
+    </div>
+  );
 }
 
 export default function Pro() {
@@ -180,9 +200,13 @@ export default function Pro() {
   const [editName, setEditName] = useState('');
   const [editCity, setEditCity] = useState('');
   const [editFirm, setEditFirm] = useState('');
+  const [editRak, setEditRak] = useState('');
   const [editColor, setEditColor] = useState('');
+  const [editAvatarUrl, setEditAvatarUrl] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auth
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -227,9 +251,27 @@ export default function Pro() {
     setEditName(profile.display_name || '');
     setEditCity(profile.city || '');
     setEditFirm(profile.law_firm || '');
+    setEditRak(profile.rak_number || '');
     setEditColor(profile.avatar_color || '');
+    setEditAvatarUrl(profile.avatar_url || null);
     setProfileSaved(false);
     setShowProfileModal(true);
+  }
+
+  async function handleAvatarFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    if (file.size > 2 * 1024 * 1024) { alert('Maximale Dateigröße: 2 MB'); return; }
+    setAvatarUploading(true);
+    const ext = file.name.split('.').pop() || 'jpg';
+    const path = `${user.id}/avatar.${ext}`;
+    const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
+    if (!error) {
+      const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+      // Add cache-busting so new upload shows immediately
+      setEditAvatarUrl(data.publicUrl + '?t=' + Date.now());
+    }
+    setAvatarUploading(false);
   }
 
   async function saveProfile() {
@@ -239,7 +281,9 @@ export default function Pro() {
       display_name: editName.trim(),
       city: editCity,
       law_firm: editFirm.trim() || null,
+      rak_number: editRak.trim(),
       avatar_color: editColor || null,
+      avatar_url: editAvatarUrl || null,
     }).eq('id', user.id);
     await fetchProfile(user.id);
     setProfileSaving(false);
@@ -289,9 +333,7 @@ export default function Pro() {
     setAuthRak(''); setAuthCity(''); setAuthFirm(''); setAuthError('');
   }
 
-  async function handleSignOut() {
-    await supabase.auth.signOut();
-  }
+  async function handleSignOut() { await supabase.auth.signOut(); }
 
   function submitComment() {
     if (!commentText.trim() || !activePost) return;
@@ -394,7 +436,6 @@ export default function Pro() {
                     Anmelden
                   </button>
                 </div>
-
                 {authMode === 'signup' ? (
                   <>
                     <div className="font-black text-[#0F2444] text-2xl mb-1">Anwalt registrieren</div>
@@ -403,26 +444,22 @@ export default function Pro() {
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.User /></span>
                         <input type="text" name="fullname" autoComplete="name" value={authName} onChange={e => setAuthName(e.target.value)}
-                          className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition"
-                          placeholder="Vollständiger Name *" />
+                          className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition" placeholder="Vollständiger Name *" />
                       </div>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Mail /></span>
                         <input type="email" name="email" autoComplete="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
-                          className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition"
-                          placeholder="E-Mail-Adresse *" />
+                          className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition" placeholder="E-Mail-Adresse *" />
                       </div>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Lock /></span>
                         <input type="password" name="new-password" autoComplete="new-password" value={authPassword} onChange={e => setAuthPassword(e.target.value)}
-                          className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition"
-                          placeholder="Passwort (min. 6 Zeichen) *" />
+                          className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition" placeholder="Passwort (min. 6 Zeichen) *" />
                       </div>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Badge /></span>
                         <input type="text" name="rak" autoComplete="off" value={authRak} onChange={e => setAuthRak(e.target.value)}
-                          className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition"
-                          placeholder="RAK-Nummer *" />
+                          className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition" placeholder="RAK-Nummer *" />
                       </div>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><Icons.MapPin /></span>
@@ -436,8 +473,7 @@ export default function Pro() {
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Briefcase /></span>
                         <input type="text" name="organization" autoComplete="organization" value={authFirm} onChange={e => setAuthFirm(e.target.value)}
-                          className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition"
-                          placeholder="Kanzleiname (optional)" />
+                          className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition" placeholder="Kanzleiname (optional)" />
                       </div>
                     </div>
                     <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 my-4 text-xs text-amber-800 flex items-start gap-2">
@@ -453,20 +489,17 @@ export default function Pro() {
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Mail /></span>
                         <input type="email" name="email" autoComplete="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
-                          className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition"
-                          placeholder="E-Mail-Adresse" />
+                          className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition" placeholder="E-Mail-Adresse" />
                       </div>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Lock /></span>
                         <input type="password" name="current-password" autoComplete="current-password" value={authPassword} onChange={e => setAuthPassword(e.target.value)}
                           onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                          className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition"
-                          placeholder="Passwort" />
+                          className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition" placeholder="Passwort" />
                       </div>
                     </div>
                   </>
                 )}
-
                 {authError && (
                   <div className="bg-red-50 border border-red-200 rounded-xl p-3 mt-3 text-sm text-red-600 flex items-center gap-2">
                     <Icons.AlertTriangle />{authError}
@@ -486,20 +519,15 @@ export default function Pro() {
     );
   }
 
-  const avatarColor = getAvatarColor(profile);
-
   // ── LAWYER DASHBOARD ──
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
       <nav className="bg-[#0F2444] px-6 py-4 flex items-center justify-between sticky top-0 z-10">
         <a href="/" className="font-black text-2xl tracking-tight flex-shrink-0"><span className="text-white">Recht</span><span className="text-[#F59E0B]">So</span></a>
         <div className="flex items-center gap-3">
-          {/* Clickable profile pill */}
           <button onClick={openProfileModal}
             className="hidden sm:flex items-center gap-2.5 bg-white/10 hover:bg-white/20 rounded-xl px-3 py-2 transition group">
-            <span className={`w-8 h-8 ${avatarColor} rounded-lg flex items-center justify-center text-white text-xs font-black flex-shrink-0`}>
-              {(profile.display_name || 'A').slice(0, 2).toUpperCase()}
-            </span>
+            <Avatar profile={profile} size={32} />
             <div className="leading-tight text-left">
               <div className="text-white text-sm font-bold">{profile.display_name}</div>
               <div className="text-white/40 text-xs">{profile.city}</div>
@@ -515,17 +543,17 @@ export default function Pro() {
       </nav>
 
       <div className="max-w-3xl mx-auto px-4 py-6 pb-10">
-        <div className="bg-gradient-to-r from-[#0F2444] to-[#1a3a6b] rounded-2xl p-6 mb-5 flex items-center justify-between">
-          <div>
+        <div className="bg-gradient-to-r from-[#0F2444] to-[#1a3a6b] rounded-2xl p-6 mb-5 flex items-center gap-4">
+          <Avatar profile={profile} size={56} className="flex-shrink-0" />
+          <div className="flex-1 min-w-0">
             <div className="font-black text-lg"><span className="text-white">Recht</span><span className="text-[#F59E0B]">So</span><span className="text-white/50"> Pro</span></div>
-            <div className="text-white/60 text-sm mt-1">
-              {profile.law_firm ? `${profile.law_firm} · ` : ''}{profile.city}
-            </div>
-            <div className="flex items-center gap-1.5 mt-2 text-teal-300 text-xs font-bold">
-              <Icons.VerifiedBadge size={15} />RAK {profile.rak_number} · Verifiziert
+            <div className="text-white font-bold text-base">{profile.display_name}</div>
+            <div className="text-white/50 text-sm">{profile.law_firm ? `${profile.law_firm} · ` : ''}{profile.city}</div>
+            <div className="flex items-center gap-1.5 mt-1.5 text-teal-300 text-xs font-bold">
+              <Icons.VerifiedBadge size={14} />RAK {profile.rak_number} · Verifiziert
             </div>
           </div>
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-col items-end gap-2 flex-shrink-0">
             <div className="text-right">
               <div className="text-[#F59E0B] font-black text-3xl">{filtered.length}</div>
               <div className="text-white/40 text-xs">Offene Anfragen</div>
@@ -551,7 +579,7 @@ export default function Pro() {
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
-          {["Alle", "Mietrecht", "Arbeitsrecht", "Verkehrsrecht", "Abmahnung", "Vertragsrecht", "Familienrecht"].map(cat => (
+          {["Alle","Mietrecht","Arbeitsrecht","Verkehrsrecht","Abmahnung","Vertragsrecht","Familienrecht"].map(cat => (
             <button key={cat} onClick={() => setCategoryFilter(cat)}
               className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap border flex-shrink-0 transition ${categoryFilter === cat ? "bg-[#0F2444] text-white border-[#0F2444]" : "bg-white text-slate-500 border-slate-200"}`}>
               {cat}
@@ -565,13 +593,9 @@ export default function Pro() {
         </div>
 
         {loadingPosts ? (
-          <div className="space-y-3">
-            {[1,2,3].map(i => <div key={i} className="bg-white rounded-2xl border border-slate-200 p-5 animate-pulse h-32" />)}
-          </div>
+          <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="bg-white rounded-2xl border border-slate-200 p-5 animate-pulse h-32" />)}</div>
         ) : filtered.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400">
-            Noch keine Anfragen in dieser Kategorie.
-          </div>
+          <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400">Noch keine Anfragen in dieser Kategorie.</div>
         ) : (
           <div className="space-y-3">
             {filtered.map(post => {
@@ -629,19 +653,45 @@ export default function Pro() {
               <div className="font-black text-[#0F2444] text-2xl mb-1">Profil bearbeiten</div>
               <p className="text-slate-400 text-sm mb-6">Änderungen sind sofort sichtbar.</p>
 
-              {/* Avatar preview + color picker */}
+              {/* Avatar with photo upload */}
               <div className="flex flex-col items-center mb-6">
-                <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-white text-2xl font-black mb-4 transition-colors`}
-                  style={{ backgroundColor: editColor || AVATAR_COLORS[(profile.display_name?.charCodeAt(0) || 0) % AVATAR_COLORS.length].hex }}>
-                  {(editName || profile.display_name || 'A').slice(0, 2).toUpperCase()}
+                <div className="relative mb-4">
+                  {/* Preview avatar */}
+                  {editAvatarUrl ? (
+                    <img src={editAvatarUrl} alt="Avatar"
+                      className="w-24 h-24 rounded-2xl object-cover" />
+                  ) : (
+                    <div className="w-24 h-24 rounded-2xl flex items-center justify-center text-white text-3xl font-black transition-colors"
+                      style={{ backgroundColor: editColor || getAvatarHex(profile) }}>
+                      {(editName || profile.display_name || 'A').slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                  {/* Camera button overlay */}
+                  <button onClick={() => fileInputRef.current?.click()}
+                    disabled={avatarUploading}
+                    className="absolute -bottom-2 -right-2 w-9 h-9 bg-[#0F2444] hover:bg-[#1a3a6b] text-white rounded-xl flex items-center justify-center shadow-lg transition">
+                    {avatarUploading ? <Icons.Loader /> : <Icons.Camera />}
+                  </button>
+                  <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarFile} />
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400 font-medium flex items-center gap-1"><Icons.Palette />Farbe:</span>
-                  {AVATAR_COLORS.map(c => (
-                    <button key={c.hex} onClick={() => setEditColor(c.hex)}
-                      className={`w-7 h-7 rounded-full transition-all ${c.bg} ${editColor === c.hex ? 'ring-2 ring-offset-2 ring-slate-400 scale-110' : 'hover:scale-110'}`} />
-                  ))}
-                </div>
+                <p className="text-xs text-slate-400 mb-3">Foto klicken zum Hochladen · max. 2 MB</p>
+
+                {/* Color picker (only if no photo) */}
+                {!editAvatarUrl && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-400 font-medium flex items-center gap-1"><Icons.Palette />Farbe:</span>
+                    {AVATAR_COLORS.map(c => (
+                      <button key={c.hex} onClick={() => setEditColor(c.hex)}
+                        className={`w-7 h-7 rounded-full transition-all hover:scale-110`}
+                        style={{ backgroundColor: c.hex, outline: editColor === c.hex ? `3px solid ${c.hex}` : 'none', outlineOffset: '2px' }} />
+                    ))}
+                  </div>
+                )}
+                {editAvatarUrl && (
+                  <button onClick={() => setEditAvatarUrl(null)} className="text-xs text-red-400 hover:text-red-600 transition mt-1">
+                    Foto entfernen
+                  </button>
+                )}
               </div>
 
               <div className="space-y-3">
@@ -666,13 +716,11 @@ export default function Pro() {
                     className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition"
                     placeholder="Kanzleiname (optional)" />
                 </div>
-                {/* RAK shown but read-only */}
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.VerifiedBadge size={16} /></span>
-                  <input type="text" value={profile.rak_number || ''} readOnly
-                    className="w-full border-2 border-slate-100 bg-slate-50 rounded-xl pl-11 pr-4 py-3.5 text-base text-slate-400 cursor-not-allowed"
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Badge /></span>
+                  <input type="text" value={editRak} onChange={e => setEditRak(e.target.value)}
+                    className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition"
                     placeholder="RAK-Nummer" />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-slate-300 font-medium">Verifiziert</span>
                 </div>
               </div>
 
