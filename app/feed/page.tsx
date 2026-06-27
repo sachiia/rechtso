@@ -103,6 +103,11 @@ const Icons = {
       <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
     </svg>
   ),
+  Smile: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>
+    </svg>
+  ),
 };
 
 const categories = ["Alle", "Mietrecht", "Arbeitsrecht", "Verkehrsrecht", "Abmahnung", "Vertragsrecht", "Familienrecht"];
@@ -195,10 +200,15 @@ export default function Feed() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
+  // 'credentials' = email/password step, 'handle' = choose handle step
+  const [authStep, setAuthStep] = useState<'credentials' | 'handle'>('credentials');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+  const [handleInput, setHandleInput] = useState('');
+  const [handleError, setHandleError] = useState('');
+  const [handleLoading, setHandleLoading] = useState(false);
 
   const quota = profile ? Math.max(0, 2 - profile.questions_this_month) : 2;
 
@@ -241,9 +251,17 @@ export default function Feed() {
     if (authPassword.length < 6) { setAuthError('Passwort muss mindestens 6 Zeichen haben.'); return; }
     setAuthLoading(true);
     setAuthError('');
-    const { error } = await supabase.auth.signUp({ email: authEmail, password: authPassword });
-    if (error) setAuthError(error.message);
-    else { setShowAuthModal(false); setAuthEmail(''); setAuthPassword(''); }
+    const { data, error } = await supabase.auth.signUp({ email: authEmail, password: authPassword });
+    if (error) {
+      setAuthError(error.message);
+      setAuthLoading(false);
+      return;
+    }
+    // Move to handle selection step
+    if (data.user) {
+      await fetchProfile(data.user.id);
+      setAuthStep('handle');
+    }
     setAuthLoading(false);
   }
 
@@ -257,34 +275,45 @@ export default function Feed() {
     setAuthLoading(false);
   }
 
+  async function saveHandle() {
+    const trimmed = handleInput.trim();
+    if (trimmed.length < 3) { setHandleError('Mindestens 3 Zeichen.'); return; }
+    if (trimmed.length > 24) { setHandleError('Maximal 24 Zeichen.'); return; }
+    setHandleLoading(true);
+    setHandleError('');
+    // Check uniqueness
+    const { data: existing } = await supabase.from('profiles').select('id').eq('handle', trimmed).maybeSingle();
+    if (existing) { setHandleError('Dieser Name ist bereits vergeben. Bitte wähle einen anderen.'); setHandleLoading(false); return; }
+    // Update profile
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      await supabase.from('profiles').update({ handle: trimmed }).eq('id', session.user.id);
+      await fetchProfile(session.user.id);
+    }
+    setHandleLoading(false);
+    setShowAuthModal(false);
+    setAuthEmail('');
+    setAuthPassword('');
+    setHandleInput('');
+    setAuthStep('credentials');
+  }
+
   async function handleSignOut() {
     await supabase.auth.signOut();
   }
 
   function openQuestionModal(cat?: string) {
-    if (!user) {
-      setAuthMode('signup');
-      setShowAuthModal(true);
-      return;
-    }
+    if (!user) { setAuthMode('signup'); setAuthStep('credentials'); setShowAuthModal(true); return; }
     if (cat) setSelectedCat(cat);
     setShowModal(true);
   }
 
   async function submitQuestion() {
-    if (!questionText.trim() || !selectedCat) return;
-    if (!user || !profile) return;
+    if (!questionText.trim() || !selectedCat || !user || !profile) return;
     if (profile.questions_this_month >= 2) return;
-
-    const handle = profile.handle;
-    await supabase.from('posts').insert({ handle, category: selectedCat, content: questionText });
-
+    await supabase.from('posts').insert({ handle: profile.handle, category: selectedCat, content: questionText });
     const currentMonth = new Date().toISOString().slice(0, 7);
-    await supabase.from('profiles').update({
-      questions_this_month: profile.questions_this_month + 1,
-      month_year: currentMonth,
-    }).eq('id', user.id);
-
+    await supabase.from('profiles').update({ questions_this_month: profile.questions_this_month + 1, month_year: currentMonth }).eq('id', user.id);
     setProfile(p => p ? { ...p, questions_this_month: p.questions_this_month + 1 } : null);
     setShowModal(false);
     setQuestionText('');
@@ -357,7 +386,7 @@ export default function Feed() {
                 </div>
               </div>
               <p className="text-slate-600 text-base leading-relaxed border-t border-slate-100 pt-5 mb-5">
-                Allgemein gilt: Ohne vollständige Akteneinsicht und Prüfung der konkreten Unterlagen lässt sich keine fundierte Einschätzung abgeben. Die gesetzlichen Fristen sind in jedem Fall zu beachten.
+                Allgemein gilt: Ohne vollständige Akteneinsicht und Prüfung der konkreten Unterlagen lässt sich keine fundierte Einschätzung abgeben.
               </p>
               <button className="bg-[#0D9488] text-white text-sm font-bold px-6 py-3 rounded-xl hover:bg-teal-700 transition flex items-center gap-2">
                 <Icons.Send />Privates Gespräch anfragen
@@ -378,16 +407,12 @@ export default function Feed() {
   // ── MAIN FEED ──
   return (
     <div className="min-h-screen bg-[#f0f2f5] font-sans">
-
-      {/* NAV */}
       <nav className="bg-[#0F2444] px-8 py-4 flex items-center gap-5 sticky top-0 z-20 shadow-lg">
         <span className="font-black text-2xl tracking-tight flex-shrink-0"><span className="text-white">Recht</span><span className="text-[#F59E0B]">So</span></span>
         <div className="flex-1 relative">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40"><Icons.Search /></span>
           <input className="w-full bg-white/10 border border-white/20 rounded-xl pl-10 pr-4 py-2.5 text-white text-base placeholder-white/40 outline-none focus:bg-white/20 transition" placeholder="Mietrecht, Abmahnung, Kündigung..." />
         </div>
-
-        {/* NAV RIGHT: logged in vs logged out */}
         {user && profile ? (
           <div className="flex items-center gap-3 flex-shrink-0">
             <div className="flex items-center gap-2 bg-white/10 rounded-xl px-3 py-2">
@@ -395,31 +420,27 @@ export default function Feed() {
               <span className="text-white text-sm font-bold">{profile.handle}</span>
               <span className={`text-xs font-black px-2 py-0.5 rounded-full ${quota === 0 ? 'bg-red-500 text-white' : 'bg-[#F59E0B] text-[#0F2444]'}`}>{quota}</span>
             </div>
-            <button onClick={handleSignOut} className="text-white/40 hover:text-white transition flex items-center gap-1.5 text-sm">
-              <Icons.LogOut />
-            </button>
-            <button onClick={() => openQuestionModal()} className="bg-[#F59E0B] text-[#0F2444] font-black text-sm px-4 py-2.5 rounded-xl hover:bg-amber-400 transition flex items-center gap-2 hidden sm:flex">
+            <button onClick={handleSignOut} className="text-white/40 hover:text-white transition"><Icons.LogOut /></button>
+            <button onClick={() => openQuestionModal()} className="bg-[#F59E0B] text-[#0F2444] font-black text-sm px-4 py-2.5 rounded-xl hover:bg-amber-400 transition hidden sm:flex items-center gap-2">
               <Icons.Plus />Frage stellen
             </button>
           </div>
         ) : (
           <div className="flex items-center gap-2 flex-shrink-0">
-            <button onClick={() => { setAuthMode('login'); setShowAuthModal(true); }} className="text-white/70 text-sm font-medium px-4 py-2 rounded-xl hover:text-white hover:bg-white/10 transition hidden sm:block">
+            <button onClick={() => { setAuthMode('login'); setAuthStep('credentials'); setShowAuthModal(true); }} className="text-white/70 text-sm font-medium px-4 py-2 rounded-xl hover:text-white hover:bg-white/10 transition hidden sm:block">
               Anmelden
             </button>
-            <button onClick={() => { setAuthMode('signup'); setShowAuthModal(true); }} className="bg-[#F59E0B] text-[#0F2444] font-black text-sm px-4 py-2.5 rounded-xl hover:bg-amber-400 transition flex items-center gap-2">
+            <button onClick={() => { setAuthMode('signup'); setAuthStep('credentials'); setShowAuthModal(true); }} className="bg-[#F59E0B] text-[#0F2444] font-black text-sm px-4 py-2.5 rounded-xl hover:bg-amber-400 transition flex items-center gap-2">
               <Icons.Plus />Kostenlos starten
             </button>
           </div>
         )}
       </nav>
 
-      {/* DISCLAIMER */}
       <div className="bg-amber-50 border-b border-amber-200 text-center text-sm text-amber-800 font-medium py-2.5 px-4 flex items-center justify-center gap-2">
         <Icons.AlertTriangle /><span>Dies ist keine Rechtsberatung. Bitte konsultieren Sie einen zugelassenen Rechtsanwalt.</span>
       </div>
 
-      {/* HERO */}
       <div className="bg-[#0F2444] px-8 py-8">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
@@ -434,10 +455,7 @@ export default function Feed() {
         </div>
       </div>
 
-      {/* THREE COLUMNS */}
       <div className="w-full px-6 py-6 pb-28 flex gap-6">
-
-        {/* LEFT SIDEBAR */}
         <aside className="hidden lg:block flex-shrink-0" style={{ width: '280px' }}>
           <div className="bg-white rounded-2xl border border-slate-200 p-5 sticky top-24 shadow-sm">
             <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Kategorien</div>
@@ -461,9 +479,7 @@ export default function Feed() {
           </div>
         </aside>
 
-        {/* MAIN FEED */}
         <main className="flex-1 min-w-0">
-          {/* Mobile category scroll */}
           <div className="flex gap-2 overflow-x-auto pb-2 mb-4 lg:hidden">
             {categories.map(cat => (
               <button key={cat} onClick={() => setActiveCategory(cat)}
@@ -473,19 +489,14 @@ export default function Feed() {
             ))}
           </div>
 
-          {/* FACEBOOK-STYLE PROMPT */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mb-4">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-[#0F2444] rounded-full flex items-center justify-center text-white flex-shrink-0">
-                {user && profile ? (
-                  <span className="text-sm font-black">{profile.handle.slice(0, 2).toUpperCase()}</span>
-                ) : (
-                  <Icons.Scale />
-                )}
+                {user && profile ? <span className="text-sm font-black">{profile.handle.slice(0, 2).toUpperCase()}</span> : <Icons.Scale />}
               </div>
               <button onClick={() => openQuestionModal()}
                 className="flex-1 bg-[#f0f2f5] hover:bg-slate-200 border border-transparent rounded-full px-5 py-3 text-left text-slate-400 text-base transition cursor-pointer font-medium">
-                {user ? `Was ist Ihre Rechtsfrage, ${profile?.handle}?` : 'Haben Sie eine Rechtsfrage? Anonym stellen…'}
+                {user && profile ? `Was ist Ihre Rechtsfrage, ${profile.handle}?` : 'Haben Sie eine Rechtsfrage? Anonym stellen…'}
               </button>
             </div>
             <div className="mt-4 pt-4 border-t border-slate-100 flex gap-2 flex-wrap">
@@ -527,9 +538,7 @@ export default function Feed() {
             <div className="space-y-4">
               {[1,2,3].map(i => (
                 <div key={i} className="bg-white rounded-2xl border border-slate-200 p-6 animate-pulse">
-                  <div className="h-5 bg-slate-100 rounded w-1/3 mb-4" />
-                  <div className="h-4 bg-slate-100 rounded w-full mb-2" />
-                  <div className="h-4 bg-slate-100 rounded w-2/3" />
+                  <div className="h-5 bg-slate-100 rounded w-1/3 mb-4" /><div className="h-4 bg-slate-100 rounded w-full mb-2" /><div className="h-4 bg-slate-100 rounded w-2/3" />
                 </div>
               ))}
             </div>
@@ -555,11 +564,9 @@ export default function Feed() {
                       </span>
                     </div>
                     <p className="text-slate-600 text-base leading-relaxed mb-5 line-clamp-2 group-hover:text-slate-800 transition-colors">{post.content}</p>
-                    <div className="flex items-center gap-3">
-                      <span className={`text-sm font-semibold px-4 py-2 rounded-xl flex items-center gap-2 ${post.answers_count > 0 ? "bg-teal-50 text-teal-700 border border-teal-200" : "bg-slate-50 text-slate-400 border border-slate-200"}`}>
-                        <Icons.Chat />{post.answers_count} Anwaltsantworten
-                      </span>
-                    </div>
+                    <span className={`text-sm font-semibold px-4 py-2 rounded-xl flex items-center gap-2 w-fit ${post.answers_count > 0 ? "bg-teal-50 text-teal-700 border border-teal-200" : "bg-slate-50 text-slate-400 border border-slate-200"}`}>
+                      <Icons.Chat />{post.answers_count} Anwaltsantworten
+                    </span>
                   </div>
                 );
               })}
@@ -567,7 +574,6 @@ export default function Feed() {
           )}
         </main>
 
-        {/* RIGHT SIDEBAR */}
         <aside className="hidden xl:block flex-shrink-0" style={{ width: '320px' }}>
           <div className="space-y-4 sticky top-24">
             <div className="bg-[#0F2444] rounded-2xl p-6 text-white">
@@ -593,10 +599,10 @@ export default function Feed() {
                 <>
                   <div className="font-black text-xl mb-2">Rechtsfrage?</div>
                   <p className="text-white/60 text-sm leading-relaxed mb-5">Stelle deine Frage anonym. Echte Anwälte antworten — kostenlos.</p>
-                  <button onClick={() => { setAuthMode('signup'); setShowAuthModal(true); }} className="w-full bg-[#F59E0B] text-[#0F2444] font-black text-base py-3.5 rounded-xl hover:bg-amber-400 transition flex items-center justify-center gap-2">
+                  <button onClick={() => { setAuthMode('signup'); setAuthStep('credentials'); setShowAuthModal(true); }} className="w-full bg-[#F59E0B] text-[#0F2444] font-black text-base py-3.5 rounded-xl hover:bg-amber-400 transition flex items-center justify-center gap-2">
                     <Icons.Plus />Kostenlos starten
                   </button>
-                  <button onClick={() => { setAuthMode('login'); setShowAuthModal(true); }} className="w-full mt-2 text-white/50 text-sm py-2 hover:text-white transition">
+                  <button onClick={() => { setAuthMode('login'); setAuthStep('credentials'); setShowAuthModal(true); }} className="w-full mt-2 text-white/50 text-sm py-2 hover:text-white transition">
                     Bereits registriert? Anmelden
                   </button>
                 </>
@@ -622,6 +628,9 @@ export default function Feed() {
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
               <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Für Anwälte</div>
               <p className="text-slate-600 text-sm leading-relaxed mb-4">Mandanten warten auf Ihre Expertise. Ab €39/Monat.</p>
+              <a href="/anwaelte" className="block text-center bg-white border-2 border-slate-200 text-slate-600 font-bold text-sm py-3 rounded-xl hover:bg-slate-100 transition mb-2">
+                Anwaltsverzeichnis →
+              </a>
               <a href="/pro" className="block text-center bg-white border-2 border-[#0F2444] text-[#0F2444] font-bold text-sm py-3 rounded-xl hover:bg-[#0F2444] hover:text-white transition">
                 Jetzt registrieren →
               </a>
@@ -630,82 +639,110 @@ export default function Feed() {
         </aside>
       </div>
 
-      {/* MOBILE FAB */}
       <div className="fixed bottom-6 left-4 right-4 max-w-md mx-auto z-20 sm:hidden">
         <button onClick={() => openQuestionModal()}
           className="w-full bg-[#0F2444] text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-3 shadow-xl hover:bg-[#1a3a6b] transition">
           <Icons.Plus />Frage stellen
-          <span className={`text-sm font-black px-2.5 py-1 rounded-full ${quota === 0 ? "bg-red-500 text-white" : "bg-[#F59E0B] text-[#0F2444]"}`}>
-            {quota} verbleibend
-          </span>
+          <span className={`text-sm font-black px-2.5 py-1 rounded-full ${quota === 0 ? "bg-red-500 text-white" : "bg-[#F59E0B] text-[#0F2444]"}`}>{quota} verbleibend</span>
         </button>
       </div>
 
       {/* ── AUTH MODAL ── */}
       {showAuthModal && (
         <div className="fixed inset-0 bg-[#0F2444]/70 z-40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl">
-            {/* Tabs */}
-            <div className="flex bg-slate-100 rounded-2xl p-1 mb-7">
-              <button onClick={() => { setAuthMode('signup'); setAuthError(''); }}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition ${authMode === 'signup' ? 'bg-white text-[#0F2444] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
-                Registrieren
-              </button>
-              <button onClick={() => { setAuthMode('login'); setAuthError(''); }}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition ${authMode === 'login' ? 'bg-white text-[#0F2444] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
-                Anmelden
-              </button>
-            </div>
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
 
-            {authMode === 'signup' ? (
-              <>
-                <div className="font-black text-[#0F2444] text-2xl mb-1">Kostenlos starten</div>
-                <p className="text-slate-400 text-sm mb-6">2 Fragen pro Monat · Anonym · Kein Abo</p>
-              </>
-            ) : (
-              <>
-                <div className="font-black text-[#0F2444] text-2xl mb-1">Willkommen zurück</div>
-                <p className="text-slate-400 text-sm mb-6">Melden Sie sich an, um fortzufahren.</p>
-              </>
-            )}
-
-            <div className="space-y-3 mb-4">
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Mail /></span>
-                <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
-                  className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition text-slate-700"
-                  placeholder="E-Mail-Adresse" />
-              </div>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Lock /></span>
-                <input type="password" value={authPassword} onChange={e => setAuthPassword(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && (authMode === 'signup' ? handleSignUp() : handleLogin())}
-                  className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition text-slate-700"
-                  placeholder={authMode === 'signup' ? 'Passwort (min. 6 Zeichen)' : 'Passwort'} />
-              </div>
-            </div>
-
-            {authError && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-sm text-red-600 flex items-center gap-2">
-                <Icons.AlertTriangle />{authError}
-              </div>
-            )}
-
-            {authMode === 'signup' && (
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-4 text-xs text-slate-500">
-                Nach der Registrierung wird Ihnen automatisch ein anonymes Handle zugewiesen (z.B. Mieter_4821).
+            {/* STEP 1: credentials */}
+            {authStep === 'credentials' && (
+              <div className="p-8">
+                <div className="flex bg-slate-100 rounded-2xl p-1 mb-7">
+                  <button onClick={() => { setAuthMode('signup'); setAuthError(''); }}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition ${authMode === 'signup' ? 'bg-white text-[#0F2444] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
+                    Registrieren
+                  </button>
+                  <button onClick={() => { setAuthMode('login'); setAuthError(''); }}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition ${authMode === 'login' ? 'bg-white text-[#0F2444] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
+                    Anmelden
+                  </button>
+                </div>
+                <div className="font-black text-[#0F2444] text-2xl mb-1">
+                  {authMode === 'signup' ? 'Kostenlos starten' : 'Willkommen zurück'}
+                </div>
+                <p className="text-slate-400 text-sm mb-6">
+                  {authMode === 'signup' ? '2 Fragen pro Monat · Anonym · Kein Abo' : 'Melden Sie sich an, um fortzufahren.'}
+                </p>
+                <div className="space-y-3 mb-4">
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Mail /></span>
+                    <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
+                      className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition text-slate-700"
+                      placeholder="E-Mail-Adresse" />
+                  </div>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Lock /></span>
+                    <input type="password" value={authPassword} onChange={e => setAuthPassword(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && (authMode === 'signup' ? handleSignUp() : handleLogin())}
+                      className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition text-slate-700"
+                      placeholder={authMode === 'signup' ? 'Passwort (min. 6 Zeichen)' : 'Passwort'} />
+                  </div>
+                </div>
+                {authError && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-sm text-red-600 flex items-center gap-2">
+                    <Icons.AlertTriangle />{authError}
+                  </div>
+                )}
+                <button onClick={authMode === 'signup' ? handleSignUp : handleLogin} disabled={authLoading}
+                  className="w-full bg-[#0F2444] text-white font-black py-4 rounded-xl text-base hover:bg-[#1a3a6b] transition disabled:opacity-50 mb-3">
+                  {authLoading ? 'Bitte warten...' : authMode === 'signup' ? 'Weiter →' : 'Anmelden'}
+                </button>
+                <button onClick={() => { setShowAuthModal(false); setAuthError(''); setAuthEmail(''); setAuthPassword(''); }}
+                  className="w-full py-3 text-slate-400 text-sm hover:text-slate-600 transition">Abbrechen</button>
               </div>
             )}
 
-            <button onClick={authMode === 'signup' ? handleSignUp : handleLogin}
-              disabled={authLoading}
-              className="w-full bg-[#0F2444] text-white font-black py-4 rounded-xl text-base hover:bg-[#1a3a6b] transition disabled:opacity-50 mb-3">
-              {authLoading ? 'Bitte warten...' : authMode === 'signup' ? 'Jetzt registrieren' : 'Anmelden'}
-            </button>
-            <button onClick={() => { setShowAuthModal(false); setAuthError(''); setAuthEmail(''); setAuthPassword(''); }}
-              className="w-full py-3 text-slate-400 text-sm hover:text-slate-600 transition">
-              Abbrechen
-            </button>
+            {/* STEP 2: choose handle */}
+            {authStep === 'handle' && (
+              <div className="p-8">
+                <div className="w-16 h-16 bg-[#F59E0B]/10 rounded-2xl flex items-center justify-center mx-auto mb-5">
+                  <Icons.Smile />
+                </div>
+                <div className="font-black text-[#0F2444] text-2xl text-center mb-2">Wähle deinen Namen</div>
+                <p className="text-slate-400 text-sm text-center mb-2">Dein anonymer Name auf RechtSo. Du kannst ihn jederzeit ändern.</p>
+                <p className="text-slate-300 text-xs text-center mb-6">Kein Klarname empfohlen — bleib anonym.</p>
+
+                <div className="bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 mb-4 text-center">
+                  <div className="text-xs text-slate-400 mb-1">Dein zufälliger Name (Vorschlag)</div>
+                  <div className="font-black text-[#0F2444] text-lg">{profile?.handle}</div>
+                  <button onClick={() => setHandleInput(profile?.handle || '')} className="text-xs text-teal-500 hover:text-teal-700 mt-1 transition">
+                    Diesen Namen behalten
+                  </button>
+                </div>
+
+                <div className="relative mb-2">
+                  <input
+                    type="text"
+                    value={handleInput}
+                    onChange={e => { setHandleInput(e.target.value); setHandleError(''); }}
+                    onKeyDown={e => e.key === 'Enter' && saveHandle()}
+                    className="w-full border-2 border-slate-200 rounded-xl px-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition text-slate-700 text-center font-bold"
+                    placeholder="Eigenen Namen eingeben..."
+                    maxLength={24}
+                  />
+                  <div className="text-right text-xs text-slate-300 mt-1">{handleInput.length}/24</div>
+                </div>
+
+                {handleError && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-sm text-red-600 flex items-center gap-2">
+                    <Icons.AlertTriangle />{handleError}
+                  </div>
+                )}
+
+                <button onClick={saveHandle} disabled={handleLoading || handleInput.trim().length < 3}
+                  className="w-full bg-[#0F2444] text-white font-black py-4 rounded-xl text-base hover:bg-[#1a3a6b] transition disabled:opacity-40 mt-2">
+                  {handleLoading ? 'Speichern...' : 'Los geht\'s →'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
