@@ -38,6 +38,12 @@ const Icons = {
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
     </svg>
   ),
+  VerifiedBadge: ({ size = 16 }: { size?: number }) => (
+    <svg width={size} height={size} viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="11" cy="11" r="11" fill="#1D9BF0"/>
+      <path d="M6.5 11.5L9.5 14.5L15.5 8" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
   Check: () => (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="20 6 9 17 4 12"/>
@@ -181,6 +187,8 @@ export default function Pro() {
     const { data, error } = await supabase.auth.signUp({ email: authEmail, password: authPassword });
     if (error) { setAuthError(error.message); setAuthLoading(false); return; }
     if (data.user) {
+      // Wait for the DB trigger to create the profile row before updating it
+      await new Promise(r => setTimeout(r, 1000));
       await supabase.from('profiles').update({
         role: 'lawyer',
         display_name: authName,
@@ -240,7 +248,7 @@ export default function Pro() {
         {/* HERO */}
         <div className="bg-gradient-to-br from-[#0F2444] to-[#1a3a6b] px-6 py-24 text-center">
           <div className="inline-flex items-center gap-2 bg-[#F59E0B]/20 text-[#F59E0B] text-xs font-bold px-4 py-2 rounded-full mb-8 tracking-widest uppercase">
-            <Icons.Badge />Für Rechtsanwälte
+            <Icons.VerifiedBadge size={14} />Für Rechtsanwälte
           </div>
           <h1 className="text-4xl sm:text-5xl font-black text-white leading-tight mb-6">
             Neue Mandanten.<br /><span className="text-[#F59E0B]">Ohne Kaltakquise.</span>
@@ -424,8 +432,9 @@ export default function Pro() {
               <div className="text-white text-sm font-bold">{profile.display_name}</div>
               <div className="text-white/40 text-xs">{profile.city}</div>
             </div>
-            <span className="flex items-center gap-1 bg-teal-500/20 text-teal-300 text-xs font-bold px-2 py-0.5 rounded-full ml-1">
-              <Icons.Badge />Verifiziert
+            <span className="flex items-center gap-1.5 ml-1">
+              <Icons.VerifiedBadge size={18} />
+              <span className="text-teal-300 text-xs font-bold">Verifiziert</span>
             </span>
           </div>
           <button onClick={handleSignOut} className="text-white/40 hover:text-white transition"><Icons.LogOut /></button>
@@ -441,7 +450,7 @@ export default function Pro() {
               {profile.law_firm ? `${profile.law_firm} · ` : ''}{profile.city}
             </div>
             <div className="flex items-center gap-1.5 mt-2 text-teal-300 text-xs font-bold">
-              <Icons.Badge />RAK {profile.rak_number} · Verifiziert
+              <Icons.VerifiedBadge size={15} />RAK {profile.rak_number} · Verifiziert
             </div>
           </div>
           <div className="text-right">
