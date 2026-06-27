@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
 import { supabase } from '@/lib/supabase';
 
 type Lawyer = {
@@ -31,12 +32,14 @@ function VerifiedBadge({ size = 18 }: { size?: number }) {
   );
 }
 
-export default function LawyerProfilePage({ params }: { params: { id: string } }) {
+export default function LawyerProfilePage() {
+  const params = useParams<{ id: string }>();
   const [lawyer, setLawyer] = useState<Lawyer | null>(null);
   const [loading, setLoading] = useState(true);
   const [showContact, setShowContact] = useState(false);
 
   useEffect(() => {
+    if (!params?.id) return;
     async function fetchLawyer() {
       const { data } = await supabase
         .from('profiles')
@@ -48,7 +51,7 @@ export default function LawyerProfilePage({ params }: { params: { id: string } }
       setLoading(false);
     }
     fetchLawyer();
-  }, [params.id]);
+  }, [params?.id]);
 
   if (loading) {
     return (
