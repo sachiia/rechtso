@@ -112,6 +112,19 @@ const Icons = {
   ),
 };
 
+const SPECIALTIES = [
+  "Mietrecht","Arbeitsrecht","Verkehrsrecht","Familienrecht","Erbrecht",
+  "Strafrecht","Steuerrecht","Gesellschaftsrecht","IT-Recht","Sozialrecht",
+  "Vertragsrecht","Abmahnung","Insolvenzrecht","Medizinrecht","Immobilienrecht","Markenrecht",
+];
+
+function generateSlug(name: string, id: string): string {
+  const base = name.toLowerCase()
+    .replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss')
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+  return `${base}-${id.slice(0,8)}`;
+}
+
 type LawyerProfile = {
   id: string;
   handle: string;
@@ -122,6 +135,12 @@ type LawyerProfile = {
   role: string;
   avatar_color: string | null;
   avatar_url: string | null;
+  phone_number: string | null;
+  contact_email: string | null;
+  address: string | null;
+  specialties: string[] | null;
+  bio: string | null;
+  slug: string | null;
 };
 
 type Post = {
@@ -203,10 +222,19 @@ export default function Pro() {
   const [editRak, setEditRak] = useState('');
   const [editColor, setEditColor] = useState('');
   const [editAvatarUrl, setEditAvatarUrl] = useState<string | null>(null);
+  const [editPhone, setEditPhone] = useState('');
+  const [editContactEmail, setEditContactEmail] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editSpecialties, setEditSpecialties] = useState<string[]>([]);
+  const [editBio, setEditBio] = useState('');
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function toggleSpecialty(s: string) {
+    setEditSpecialties(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+  }
 
   // Auth
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -254,6 +282,11 @@ export default function Pro() {
     setEditRak(profile.rak_number || '');
     setEditColor(profile.avatar_color || '');
     setEditAvatarUrl(profile.avatar_url || null);
+    setEditPhone(profile.phone_number || '');
+    setEditContactEmail(profile.contact_email || '');
+    setEditAddress(profile.address || '');
+    setEditSpecialties(profile.specialties || []);
+    setEditBio(profile.bio || '');
     setProfileSaved(false);
     setShowProfileModal(true);
   }
@@ -277,6 +310,7 @@ export default function Pro() {
   async function saveProfile() {
     if (!user || !editName.trim() || !editCity) return;
     setProfileSaving(true);
+    const slug = generateSlug(editName.trim(), user.id);
     await supabase.from('profiles').update({
       display_name: editName.trim(),
       city: editCity,
@@ -284,6 +318,12 @@ export default function Pro() {
       rak_number: editRak.trim(),
       avatar_color: editColor || null,
       avatar_url: editAvatarUrl || null,
+      phone_number: editPhone.trim() || null,
+      contact_email: editContactEmail.trim() || null,
+      address: editAddress.trim() || null,
+      specialties: editSpecialties.length > 0 ? editSpecialties : null,
+      bio: editBio.trim() || null,
+      slug,
     }).eq('id', user.id);
     await fetchProfile(user.id);
     setProfileSaving(false);
@@ -722,6 +762,59 @@ export default function Pro() {
                     className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition"
                     placeholder="RAK-Nummer" />
                 </div>
+
+                {/* Phone */}
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.64A2 2 0 012 .18h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z"/>
+                    </svg>
+                  </span>
+                  <input type="tel" value={editPhone} onChange={e => setEditPhone(e.target.value)}
+                    className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition"
+                    placeholder="Telefonnummer (z.B. +49 221 123456)" />
+                </div>
+
+                {/* Contact Email */}
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Mail /></span>
+                  <input type="email" value={editContactEmail} onChange={e => setEditContactEmail(e.target.value)}
+                    className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition"
+                    placeholder="Öffentliche Kontakt-E-Mail" />
+                </div>
+
+                {/* Address */}
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.MapPin /></span>
+                  <input type="text" value={editAddress} onChange={e => setEditAddress(e.target.value)}
+                    className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition"
+                    placeholder="Kanzleiadresse (Straße, PLZ)" />
+                </div>
+              </div>
+
+              {/* Specialties */}
+              <div className="mt-4">
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Rechtsgebiete</div>
+                <div className="flex flex-wrap gap-2">
+                  {SPECIALTIES.map(s => (
+                    <button key={s} type="button" onClick={() => toggleSpecialty(s)}
+                      className={`text-xs px-3 py-1.5 rounded-full font-semibold border transition ${
+                        editSpecialties.includes(s)
+                          ? 'bg-[#0F2444] text-white border-[#0F2444]'
+                          : 'text-slate-500 border-slate-200 hover:border-[#0F2444]'
+                      }`}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bio */}
+              <div className="mt-4">
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Über mich (optional)</div>
+                <textarea value={editBio} onChange={e => setEditBio(e.target.value)}
+                  className="w-full border-2 border-slate-200 rounded-xl p-4 text-sm font-sans resize-none outline-none focus:border-[#0F2444] transition text-slate-700"
+                  rows={3} placeholder="Kurze Beschreibung Ihrer Kanzlei und Erfahrung..." />
               </div>
 
               <div className="flex gap-3 mt-6">

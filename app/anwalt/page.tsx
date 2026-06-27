@@ -10,7 +10,13 @@ type Lawyer = {
   rak_number: string;
   avatar_color: string | null;
   avatar_url: string | null;
+  specialties: string[] | null;
+  slug: string | null;
 };
+
+function lawyerUrl(lawyer: Lawyer): string {
+  return `/anwalt/${lawyer.slug || lawyer.id}`;
+}
 
 const AVATAR_COLORS = ["#14B8A6","#3B82F6","#8B5CF6","#F43F5E","#F59E0B","#10B981"];
 
@@ -59,7 +65,7 @@ export default function AnwaeltePage() {
     async function fetchLawyers() {
       const { data } = await supabase
         .from('profiles')
-        .select('id, display_name, city, law_firm, rak_number, avatar_color, avatar_url')
+        .select('id, display_name, city, law_firm, rak_number, avatar_color, avatar_url, specialties, slug')
         .eq('role', 'lawyer')
         .not('display_name', 'is', null)
         .order('display_name');
@@ -187,7 +193,7 @@ export default function AnwaeltePage() {
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map(lawyer => (
-              <a key={lawyer.id} href={`/anwalt/${lawyer.id}`}
+              <a key={lawyer.id} href={lawyerUrl(lawyer)}
                 className="bg-white rounded-2xl border border-slate-200 p-6 hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 group block">
                 <div className="flex items-start gap-4 mb-4">
                   <Avatar lawyer={lawyer} size={56} />
@@ -205,6 +211,16 @@ export default function AnwaeltePage() {
                     </div>
                   </div>
                 </div>
+                {lawyer.specialties && lawyer.specialties.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {lawyer.specialties.slice(0, 3).map(s => (
+                      <span key={s} className="text-xs font-semibold px-2 py-0.5 rounded-lg bg-slate-100 text-slate-500">{s}</span>
+                    ))}
+                    {lawyer.specialties.length > 3 && (
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-lg bg-slate-100 text-slate-400">+{lawyer.specialties.length - 3}</span>
+                    )}
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5 text-xs font-bold text-teal-600 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-lg">
                     <VerifiedBadge size={12} />RAK verifiziert
