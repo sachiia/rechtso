@@ -84,7 +84,7 @@ export default function Pro() {
     <div className="min-h-screen bg-slate-50 font-sans">
       {/* NAV */}
       <nav className="bg-[#0F2444] px-4 py-3 flex items-center justify-between sticky top-0 z-10">
-        <span className="text-white font-bold text-lg">RechtSo<span className="text-[#F59E0B]">⚡</span></span>
+        <span className="font-black text-2xl tracking-tight"><span className="text-white">Recht</span><span className="text-[#F59E0B]">So</span></span>
         <span className="bg-[#F59E0B] text-[#0F2444] text-xs font-black px-3 py-1 rounded-lg">RECHTSO PRO</span>
       </nav>
 
@@ -93,7 +93,7 @@ export default function Pro() {
         {/* PRO HEADER */}
         <div className="bg-gradient-to-r from-[#0F2444] to-[#1a3a6b] rounded-2xl p-5 mb-5 flex items-center justify-between">
           <div>
-            <div className="text-white font-black text-lg">RechtSo Pro ⚖️</div>
+            <div className="font-black text-lg"><span className="text-white">Recht</span><span className="text-[#F59E0B]">So</span><span className="text-white/60"> Pro</span></div>
             <div className="text-white/50 text-xs mt-1">Live-Mandantenstrom · 27. Juni 2026</div>
           </div>
           <div className="text-right">

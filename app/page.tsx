@@ -4,7 +4,7 @@ export default function Home() {
       {/* NAV */}
       <nav className="bg-[#0F2444] px-6 py-4 flex items-center justify-between">
         <div className="text-white font-bold text-xl tracking-tight">
-          RechtSo<span className="text-[#F59E0B]">⚡</span>
+          <span className="text-white">Recht</span><span className="text-[#F59E0B]">So</span>
         </div>
         <div className="flex gap-3">
           <a href="/feed" className="text-white/70 text-sm font-medium px-4 py-2 rounded-lg hover:text-white transition">
@@ -120,7 +120,7 @@ export default function Home() {
       {/* FOOTER */}
       <footer className="bg-[#0F2444] px-6 py-12 text-center">
         <div className="text-white font-bold text-lg mb-2">
-          RechtSo<span className="text-[#F59E0B]">⚡</span>
+          <span className="text-white">Recht</span><span className="text-[#F59E0B]">So</span>
         </div>
         <p className="text-white/40 text-xs max-w-md mx-auto leading-relaxed mb-6">
           RechtSo ist ein Informationsportal und keine Rechtsanwaltskanzlei. Die Inhalte auf dieser Plattform stellen keine Rechtsberatung im Sinne des RDG dar. Bitte konsultieren Sie für persönliche Rechtsfragen einen zugelassenen Rechtsanwalt.
