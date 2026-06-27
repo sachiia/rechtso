@@ -623,6 +623,20 @@ export default function Feed() {
                 Anwaltsverzeichnis →
               </div>
             </a>
+
+            <a href="/pro"
+              className="block bg-white border-2 border-slate-200 rounded-2xl p-5 hover:border-[#0F2444] transition group">
+              <div className="flex items-center gap-2 mb-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F2444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                </svg>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Für Anwälte</span>
+              </div>
+              <div className="font-black text-[#0F2444] text-base leading-snug mb-3">Mandanten gewinnen ab €39/Monat</div>
+              <div className="w-full bg-[#0F2444] group-hover:bg-[#1a3a6b] text-white font-black text-sm py-2.5 rounded-xl text-center transition">
+                Als Anwalt registrieren →
+              </div>
+            </a>
           </div>
         </aside>
       </div>
