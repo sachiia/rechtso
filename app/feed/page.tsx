@@ -141,8 +141,8 @@ function timeAgo(dateStr: string) {
   return `vor ${Math.floor(diff / 86400)} Tagen`;
 }
 
-function CategoryIcon({ category, size = 18 }: { category: string; size?: number }) {
-  const map: Record<string, () => JSX.Element> = {
+function CategoryIcon({ category }: { category: string }) {
+  const map: Record<string, () => React.JSX.Element> = {
     Mietrecht: Icons.Mietrecht,
     Arbeitsrecht: Icons.Arbeitsrecht,
     Verkehrsrecht: Icons.Verkehrsrecht,
