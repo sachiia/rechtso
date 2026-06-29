@@ -174,6 +174,21 @@ type Post = {
   created_at: string;
 };
 
+type Comment = {
+  id: string;
+  content: string;
+  created_at: string;
+  lawyer_id: string;
+  profiles: {
+    display_name: string;
+    city: string | null;
+    law_firm: string | null;
+    avatar_url: string | null;
+    avatar_color: string | null;
+    rak_number: string;
+  } | null;
+};
+
 type Profile = {
   id: string;
   handle: string;
@@ -222,6 +237,10 @@ export default function Feed() {
   // Me Too tracking (local state for MVP)
   const [metoos, setMetoos] = useState<Record<string, boolean>>({});
 
+  // Comments for detail view
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+
   // ── AUTH STATE ──
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -260,6 +279,24 @@ export default function Feed() {
     if (data) setPosts(data);
     setLoading(false);
   }
+
+  async function loadComments(postId: string) {
+    setCommentsLoading(true);
+    const { data } = await supabase
+      .from('comments')
+      .select('id, content, created_at, lawyer_id, profiles:lawyer_id(display_name, city, law_firm, avatar_url, avatar_color, rak_number)')
+      .eq('post_id', postId)
+      .order('created_at', { ascending: true });
+    if (data) setComments(data as Comment[]);
+    setCommentsLoading(false);
+  }
+
+  useEffect(() => {
+    if (selectedPost) {
+      setComments([]);
+      loadComments(selectedPost.id);
+    }
+  }, [selectedPost?.id]);
 
   async function fetchProfile(userId: string) {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
@@ -412,30 +449,61 @@ export default function Feed() {
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 text-sm text-amber-800 flex items-center gap-2">
             <Icons.AlertTriangle />Dies ist keine Rechtsberatung. Bitte konsultieren Sie einen zugelassenen Rechtsanwalt.
           </div>
-          <div className="text-sm font-bold text-slate-400 uppercase tracking-wide mb-4">{selectedPost.answers_count} Anwaltsantworten</div>
-          {selectedPost.answers_count > 0 ? (
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-              <div className="flex gap-4 mb-5">
-                <div className="w-14 h-14 bg-[#0F2444] rounded-xl flex items-center justify-center text-white font-bold text-lg flex-shrink-0">KM</div>
-                <div>
-                  <div className="font-bold text-[#0F2444] text-base">Dr. Katja Müller</div>
-                  <div className="text-slate-400 text-sm">Rechtsanwältin · Hamburg</div>
-                  <div className="flex gap-2 mt-2">
-                    <span className="bg-teal-50 text-teal-700 border border-teal-200 text-xs font-bold px-2.5 py-1 rounded-md flex items-center gap-1.5">
-                      <Icons.Check />Registrierung angegeben
-                    </span>
+          <div className="text-sm font-bold text-slate-400 uppercase tracking-wide mb-4">{comments.length} Anwaltsantworten</div>
+          {commentsLoading ? (
+            <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-400 animate-pulse">
+              Antworten werden geladen...
+            </div>
+          ) : comments.length > 0 ? (
+            <div className="space-y-4">
+              {comments.map(comment => {
+                const p = comment.profiles;
+                const initials = p?.display_name ? p.display_name.slice(0, 2).toUpperCase() : '??';
+                // Split disclaimer from main content
+                const disclaimerMarker = '\n\n⚖️';
+                const markerIdx = comment.content.indexOf(disclaimerMarker);
+                const mainContent = markerIdx > -1 ? comment.content.slice(0, markerIdx) : comment.content;
+                const disclaimer = markerIdx > -1 ? comment.content.slice(markerIdx + 2) : null;
+                return (
+                  <div key={comment.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                    <div className="flex gap-4 mb-5">
+                      {p?.avatar_url ? (
+                        <img src={p.avatar_url} alt={initials} className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
+                      ) : (
+                        <div className="w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
+                          style={{ backgroundColor: p?.avatar_color || '#0F2444' }}>
+                          {initials}
+                        </div>
+                      )}
+                      <div>
+                        <div className="font-bold text-[#0F2444] text-base">{p?.display_name || 'Rechtsanwalt'}</div>
+                        <div className="text-slate-400 text-sm">
+                          Rechtsanwalt{p?.city ? ` · ${p.city}` : ''}{p?.law_firm ? ` · ${p.law_firm}` : ''}
+                        </div>
+                        <div className="flex gap-2 mt-2">
+                          <span className="bg-teal-50 text-teal-700 border border-teal-200 text-xs font-bold px-2.5 py-1 rounded-md flex items-center gap-1.5">
+                            <Icons.Check />RAK verifiziert
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-slate-600 text-base leading-relaxed border-t border-slate-100 pt-5 mb-4 whitespace-pre-wrap">
+                      {mainContent}
+                    </p>
+                    {disclaimer && (
+                      <p className="text-slate-400 text-xs leading-relaxed border-t border-slate-100 pt-3 italic">
+                        {disclaimer}
+                      </p>
+                    )}
+                    {p && (
+                      <a href={`/anwalt/${p.display_name.toLowerCase().replace(/\s+/g, '-')}`}
+                        className="mt-4 inline-flex bg-[#0D9488] text-white text-sm font-bold px-6 py-3 rounded-xl hover:bg-teal-700 transition items-center gap-2">
+                        <Icons.Send />Privates Gespräch anfragen
+                      </a>
+                    )}
                   </div>
-                </div>
-              </div>
-              <p className="text-slate-600 text-base leading-relaxed border-t border-slate-100 pt-5 mb-4">
-                Allgemein gilt: Ohne vollständige Akteneinsicht und Prüfung der konkreten Unterlagen lässt sich keine fundierte Einschätzung abgeben.
-              </p>
-              <p className="text-slate-400 text-xs leading-relaxed border-t border-slate-100 pt-3 italic">
-                ⚖️ Diese Antwort stellt eine unverbindliche, pauschale Ersteinschätzung dar und bildet kein formelles Mandatsverhältnis nach dem RVG. Für eine konkrete Rechtsberatung unter Haftungsausschluss nutzen Sie bitte das direkte Kontaktprofil des Anwalts.
-              </p>
-              <button className="mt-4 bg-[#0D9488] text-white text-sm font-bold px-6 py-3 rounded-xl hover:bg-teal-700 transition flex items-center gap-2">
-                <Icons.Send />Privates Gespräch anfragen
-              </button>
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-16 text-slate-400 bg-white rounded-2xl border border-slate-200">

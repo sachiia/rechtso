@@ -377,11 +377,25 @@ export default function Pro() {
 
   async function handleSignOut() { await supabase.auth.signOut(); }
 
-  function submitComment() {
-    if (!commentText.trim() || !activePost) return;
-    // In a real implementation, save (commentText + LAWYER_COMMENT_DISCLAIMER) to DB
-    // The disclaimer is automatically appended per RDG compliance
-    setCommented(prev => ({ ...prev, [activePost.id]: true }));
+  async function submitComment() {
+    if (!commentText.trim() || !activePost || !user) return;
+    const fullContent = commentText.trim() + LAWYER_COMMENT_DISCLAIMER;
+    const { error } = await supabase.from('comments').insert({
+      post_id: activePost.id,
+      lawyer_id: user.id,
+      content: fullContent,
+    });
+    if (!error) {
+      // Increment answers_count on the post
+      await supabase
+        .from('posts')
+        .update({ answers_count: activePost.answers_count + 1 })
+        .eq('id', activePost.id);
+      setCommented(prev => ({ ...prev, [activePost.id]: true }));
+      setPosts(prev => prev.map(p =>
+        p.id === activePost.id ? { ...p, answers_count: p.answers_count + 1 } : p
+      ));
+    }
     setShowCommentModal(false);
     setCommentText('');
   }
