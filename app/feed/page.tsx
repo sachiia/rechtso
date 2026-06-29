@@ -452,24 +452,30 @@ export default function Feed() {
   // ── MAIN FEED ──
   return (
     <div className="min-h-screen bg-[#f0f2f5] font-sans">
-      <nav className="bg-[#0F2444] px-8 py-4 flex items-center gap-5 sticky top-0 z-20 shadow-lg">
-        <span className="font-black text-2xl tracking-tight flex-shrink-0"><span className="text-white">IstDas</span><span className="text-[#F59E0B]">Erlaubt</span></span>
-        <div className="flex-1 relative">
+      <nav className="bg-[#0F2444] px-4 sm:px-8 py-3 sm:py-4 flex items-center gap-3 sm:gap-5 sticky top-0 z-20 shadow-lg">
+        <span className="font-black text-xl sm:text-2xl tracking-tight flex-shrink-0"><span className="text-white">IstDas</span><span className="text-[#F59E0B]">Erlaubt</span></span>
+        {/* Search — desktop only */}
+        <div className="flex-1 relative hidden sm:flex">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40"><Icons.Search /></span>
           <input className="w-full bg-white/10 border border-white/20 rounded-xl pl-10 pr-4 py-2.5 text-white text-base placeholder-white/40 outline-none focus:bg-white/20 transition" placeholder="Mietrecht, Abmahnung, Kündigung..." />
         </div>
+        {/* Spacer on mobile */}
+        <div className="flex-1 sm:hidden" />
         {user && profile ? (
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <div className="flex items-center gap-2 bg-white/10 rounded-xl px-3 py-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Desktop: full user badge */}
+            <div className="hidden sm:flex items-center gap-2 bg-white/10 rounded-xl px-3 py-2">
               <span className="text-white/50"><Icons.User /></span>
               <span className="text-white text-sm font-bold">{profile.handle}</span>
               <span className={`text-xs font-black px-2 py-0.5 rounded-full ${quota === 0 ? 'bg-red-500 text-white' : 'bg-[#F59E0B] text-[#0F2444]'}`}>{quota}</span>
             </div>
-            <button onClick={handleSignOut} className="text-white/40 hover:text-white transition"><Icons.LogOut /></button>
+            {/* Mobile: just the quota pill */}
+            <span className={`sm:hidden text-xs font-black px-2.5 py-1 rounded-full ${quota === 0 ? 'bg-red-500 text-white' : 'bg-[#F59E0B] text-[#0F2444]'}`}>{quota} übrig</span>
+            <button onClick={handleSignOut} className="hidden sm:block text-white/40 hover:text-white transition"><Icons.LogOut /></button>
             <button onClick={() => openQuestionModal()} className="bg-[#F59E0B] text-[#0F2444] font-black text-sm px-4 py-2.5 rounded-xl hover:bg-amber-400 transition hidden sm:flex items-center gap-2">
               <Icons.Plus />Frage stellen
             </button>
-            <button onClick={() => setShowMobileMenu(true)} className="sm:hidden text-white/60 hover:text-white transition p-1">
+            <button onClick={() => setShowMobileMenu(true)} className="sm:hidden text-white/60 hover:text-white transition p-2">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
               </svg>
@@ -480,10 +486,12 @@ export default function Feed() {
             <button onClick={() => { setAuthMode('login'); setAuthStep('credentials'); setShowAuthModal(true); }} className="text-white/70 text-sm font-medium px-4 py-2 rounded-xl hover:text-white hover:bg-white/10 transition hidden sm:block">
               Anmelden
             </button>
-            <button onClick={() => { setAuthMode('signup'); setAuthStep('credentials'); setShowAuthModal(true); }} className="bg-[#F59E0B] text-[#0F2444] font-black text-sm px-4 py-2.5 rounded-xl hover:bg-amber-400 transition flex items-center gap-2">
+            {/* Desktop CTA */}
+            <button onClick={() => { setAuthMode('signup'); setAuthStep('credentials'); setShowAuthModal(true); }} className="bg-[#F59E0B] text-[#0F2444] font-black text-sm px-4 py-2.5 rounded-xl hover:bg-amber-400 transition hidden sm:flex items-center gap-2">
               <Icons.Plus />Kostenlos starten
             </button>
-            <button onClick={() => setShowMobileMenu(true)} className="sm:hidden text-white/60 hover:text-white transition p-1">
+            {/* Mobile: hamburger only */}
+            <button onClick={() => setShowMobileMenu(true)} className="sm:hidden text-white/60 hover:text-white transition p-2">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
               </svg>
@@ -752,17 +760,42 @@ export default function Feed() {
                 </div>
                 <svg className="ml-auto text-slate-300" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
               </a>
-              {!user && (
-                <button onClick={() => { setShowMobileMenu(false); setAuthMode('login'); setAuthStep('credentials'); setShowAuthModal(true); }}
-                  className="w-full flex items-center gap-4 bg-slate-50 border-2 border-slate-200 rounded-2xl p-4">
-                  <div className="w-11 h-11 bg-slate-200 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <Icons.User />
+              {user && profile ? (
+                <button onClick={() => { setShowMobileMenu(false); openQuestionModal(); }}
+                  disabled={quota === 0}
+                  className={`w-full flex items-center gap-4 rounded-2xl p-4 border-2 ${quota === 0 ? 'bg-slate-50 border-slate-200 opacity-50' : 'bg-[#F59E0B]/10 border-[#F59E0B]'}`}>
+                  <div className="w-11 h-11 bg-[#F59E0B] rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Icons.Plus />
                   </div>
                   <div className="text-left">
-                    <div className="font-black text-[#0F2444] text-base">Anmelden</div>
-                    <div className="text-slate-400 text-sm">Bereits registriert?</div>
+                    <div className="font-black text-[#0F2444] text-base">{quota === 0 ? 'Fragelimit erreicht' : 'Frage stellen'}</div>
+                    <div className="text-slate-400 text-sm">{quota} von 2 Fragen verbleibend</div>
                   </div>
                 </button>
+              ) : (
+                <>
+                  <button onClick={() => { setShowMobileMenu(false); setAuthMode('signup'); setAuthStep('credentials'); setShowAuthModal(true); }}
+                    className="w-full flex items-center gap-4 bg-[#F59E0B] rounded-2xl p-4">
+                    <div className="w-11 h-11 bg-[#0F2444]/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <Icons.Plus />
+                    </div>
+                    <div className="text-left">
+                      <div className="font-black text-[#0F2444] text-base">Kostenlos starten</div>
+                      <div className="text-[#0F2444]/60 text-sm">2 Fragen/Monat · Anonym</div>
+                    </div>
+                    <svg className="ml-auto text-[#0F2444]/40" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+                  </button>
+                  <button onClick={() => { setShowMobileMenu(false); setAuthMode('login'); setAuthStep('credentials'); setShowAuthModal(true); }}
+                    className="w-full flex items-center gap-4 bg-slate-50 border-2 border-slate-200 rounded-2xl p-4">
+                    <div className="w-11 h-11 bg-slate-200 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <Icons.User />
+                    </div>
+                    <div className="text-left">
+                      <div className="font-black text-[#0F2444] text-base">Anmelden</div>
+                      <div className="text-slate-400 text-sm">Bereits registriert?</div>
+                    </div>
+                  </button>
+                </>
               )}
             </div>
             <button onClick={() => setShowMobileMenu(false)}
