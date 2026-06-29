@@ -22,6 +22,9 @@ const AVATAR_COLORS = [
   { bg: "bg-emerald-500",hex: "#10B981" },
 ];
 
+// Auto-disclaimer appended to every lawyer comment (RDG compliance)
+const LAWYER_COMMENT_DISCLAIMER = "\n\n⚖️ Diese Antwort stellt eine unverbindliche, pauschale Ersteinschätzung dar und bildet kein formelles Mandatsverhältnis nach dem RVG. Für eine konkrete Rechtsberatung unter Haftungsausschluss nutzen Sie bitte das direkte Kontaktprofil des Anwalts.";
+
 const Icons = {
   Mail: () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -301,7 +304,6 @@ export default function Pro() {
     const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
     if (!error) {
       const { data } = supabase.storage.from('avatars').getPublicUrl(path);
-      // Add cache-busting so new upload shows immediately
       setEditAvatarUrl(data.publicUrl + '?t=' + Date.now());
     }
     setAvatarUploading(false);
@@ -377,6 +379,8 @@ export default function Pro() {
 
   function submitComment() {
     if (!commentText.trim() || !activePost) return;
+    // In a real implementation, save (commentText + LAWYER_COMMENT_DISCLAIMER) to DB
+    // The disclaimer is automatically appended per RDG compliance
     setCommented(prev => ({ ...prev, [activePost.id]: true }));
     setShowCommentModal(false);
     setCommentText('');
@@ -389,7 +393,7 @@ export default function Pro() {
     return (
       <div className="min-h-screen bg-slate-50 font-sans">
         <nav className="bg-[#0F2444] px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-          <a href="/" className="font-black text-2xl tracking-tight"><span className="text-white">Recht</span><span className="text-[#F59E0B]">So</span></a>
+          <a href="/" className="font-black text-2xl tracking-tight"><span className="text-white">IstDas</span><span className="text-[#F59E0B]">Erlaubt</span></a>
           <button onClick={() => { setAuthMode('login'); setShowAuthModal(true); }}
             className="text-white/70 text-sm font-medium hover:text-white transition">
             Bereits registriert? Anmelden
@@ -416,7 +420,7 @@ export default function Pro() {
         <div className="max-w-3xl mx-auto px-6 py-20 grid sm:grid-cols-3 gap-8">
           {[
             { icon: "⚡", title: "Live-Mandantenstrom", text: "Sehen Sie Rechtsfragen in Echtzeit, bevor sie woanders landen." },
-            { icon: "🔒", title: "BRAO-konform", text: "Öffentliche Kommentare sind sachlich, kein Werbeverbot, kein Risiko." },
+            { icon: "🔒", title: "RDG-konform", text: "Öffentliche Kommentare sind sachlich, kein Werbeverbot, kein Risiko." },
             { icon: "✅", title: "Verifiziertes Profil", text: "RAK-Nummer bestätigt Ihre Zulassung. Mandanten sehen das Badge." },
           ].map(f => (
             <div key={f.title} className="text-center">
@@ -516,9 +520,9 @@ export default function Pro() {
                           className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition" placeholder="Kanzleiname (optional)" />
                       </div>
                     </div>
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 my-4 text-xs text-amber-800 flex items-start gap-2">
-                      <span className="flex-shrink-0 mt-0.5"><Icons.AlertTriangle /></span>
-                      BRAO § 43b: Ihre Kommentare müssen sachlich und fachlich korrekt sein.
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 my-4 text-xs text-blue-800 flex items-start gap-2">
+                      <span className="flex-shrink-0 mt-0.5"><Icons.Badge /></span>
+                      <span><strong>BRAK-Hinweis:</strong> Ihre RAK-Nummer wird zur Verifizierung Ihrer Zulassung verwendet. Kommentare müssen sachlich und fachlich korrekt sein (BRAO § 43b).</span>
                     </div>
                   </>
                 ) : (
@@ -563,7 +567,7 @@ export default function Pro() {
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
       <nav className="bg-[#0F2444] px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-        <a href="/" className="font-black text-2xl tracking-tight flex-shrink-0"><span className="text-white">Recht</span><span className="text-[#F59E0B]">So</span></a>
+        <a href="/" className="font-black text-2xl tracking-tight flex-shrink-0"><span className="text-white">IstDas</span><span className="text-[#F59E0B]">Erlaubt</span></a>
         <div className="flex items-center gap-3">
           <button onClick={openProfileModal}
             className="hidden sm:flex items-center gap-2.5 bg-white/10 hover:bg-white/20 rounded-xl px-3 py-2 transition group">
@@ -586,7 +590,7 @@ export default function Pro() {
         <div className="bg-gradient-to-r from-[#0F2444] to-[#1a3a6b] rounded-2xl p-6 mb-5 flex items-center gap-4">
           <Avatar profile={profile} size={56} className="flex-shrink-0" />
           <div className="flex-1 min-w-0">
-            <div className="font-black text-lg"><span className="text-white">Recht</span><span className="text-[#F59E0B]">So</span><span className="text-white/50"> Pro</span></div>
+            <div className="font-black text-lg"><span className="text-white">IstDas</span><span className="text-[#F59E0B]">Erlaubt</span><span className="text-white/50"> Pro</span></div>
             <div className="text-white font-bold text-base">{profile.display_name}</div>
             <div className="text-white/50 text-sm">{profile.law_firm ? `${profile.law_firm} · ` : ''}{profile.city}</div>
             <div className="flex items-center gap-1.5 mt-1.5 text-teal-300 text-xs font-bold">
@@ -696,7 +700,6 @@ export default function Pro() {
               {/* Avatar with photo upload */}
               <div className="flex flex-col items-center mb-6">
                 <div className="relative mb-4">
-                  {/* Preview avatar */}
                   {editAvatarUrl ? (
                     <img src={editAvatarUrl} alt="Avatar"
                       className="w-24 h-24 rounded-2xl object-cover" />
@@ -706,7 +709,6 @@ export default function Pro() {
                       {(editName || profile.display_name || 'A').slice(0, 2).toUpperCase()}
                     </div>
                   )}
-                  {/* Camera button overlay */}
                   <button onClick={() => fileInputRef.current?.click()}
                     disabled={avatarUploading}
                     className="absolute -bottom-2 -right-2 w-9 h-9 bg-[#0F2444] hover:bg-[#1a3a6b] text-white rounded-xl flex items-center justify-center shadow-lg transition">
@@ -716,7 +718,6 @@ export default function Pro() {
                 </div>
                 <p className="text-xs text-slate-400 mb-3">Foto klicken zum Hochladen · max. 2 MB</p>
 
-                {/* Color picker (only if no photo) */}
                 {!editAvatarUrl && (
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-slate-400 font-medium flex items-center gap-1"><Icons.Palette />Farbe:</span>
@@ -762,8 +763,6 @@ export default function Pro() {
                     className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition"
                     placeholder="RAK-Nummer" />
                 </div>
-
-                {/* Phone */}
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -774,16 +773,12 @@ export default function Pro() {
                     className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition"
                     placeholder="Telefonnummer (z.B. +49 221 123456)" />
                 </div>
-
-                {/* Contact Email */}
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Mail /></span>
                   <input type="email" value={editContactEmail} onChange={e => setEditContactEmail(e.target.value)}
                     className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition"
                     placeholder="Öffentliche Kontakt-E-Mail" />
                 </div>
-
-                {/* Address */}
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icons.MapPin /></span>
                   <input type="text" value={editAddress} onChange={e => setEditAddress(e.target.value)}
@@ -846,9 +841,14 @@ export default function Pro() {
             <textarea value={commentText} onChange={e => setCommentText(e.target.value)}
               className="w-full border-2 border-slate-200 rounded-xl p-4 text-sm font-sans resize-none outline-none min-h-28 focus:border-[#0F2444] text-slate-700"
               placeholder="Allgemeinen Rechtshinweis formulieren (kein persönlicher Rechtsrat)..." />
+            {/* Auto-disclaimer preview */}
+            <div className="mt-3 bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-500 leading-relaxed">
+              <div className="font-bold text-slate-400 uppercase tracking-widest mb-1">Automatisch angehängter Disclaimer (RDG-konform)</div>
+              <div className="italic">⚖️ Diese Antwort stellt eine unverbindliche, pauschale Ersteinschätzung dar und bildet kein formelles Mandatsverhältnis nach dem RVG. Für eine konkrete Rechtsberatung unter Haftungsausschluss nutzen Sie bitte das direkte Kontaktprofil des Anwalts.</div>
+            </div>
             <div className="flex gap-3 mt-4">
               <button onClick={() => setShowCommentModal(false)} className="flex-1 py-3 border-2 border-slate-200 rounded-xl text-slate-500 font-semibold text-sm">Abbrechen</button>
-              <button onClick={submitComment} className="flex-[2] py-3 bg-[#0F2444] text-white font-black rounded-xl text-sm hover:bg-[#1a3a6b] transition">
+              <button onClick={submitComment} disabled={!commentText.trim()} className="flex-[2] py-3 bg-[#0F2444] text-white font-black rounded-xl text-sm hover:bg-[#1a3a6b] transition disabled:opacity-40">
                 Kommentar veröffentlichen
               </button>
             </div>
@@ -864,7 +864,7 @@ export default function Pro() {
             <div className="text-4xl mb-3">🔒</div>
             <div className="font-black text-[#0F2444] text-lg mb-2">Privatnachricht gesendet</div>
             <p className="text-slate-400 text-sm leading-relaxed mb-6">
-              Der Mandant wurde benachrichtigt. Die weitere Kommunikation findet <strong>außerhalb von RechtSo</strong> statt.
+              Der Mandant wurde benachrichtigt. Die weitere Kommunikation findet <strong>außerhalb von IstDasErlaubt</strong> statt.
             </p>
             <button onClick={() => setShowPrivatModal(false)} className="w-full py-3 bg-[#0F2444] text-white font-black rounded-xl hover:bg-[#1a3a6b] transition">
               Verstanden

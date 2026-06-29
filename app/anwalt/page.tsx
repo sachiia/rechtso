@@ -93,7 +93,7 @@ export default function AnwaeltePage() {
       {/* NAV */}
       <nav className="bg-[#0F2444] px-8 py-4 flex items-center gap-5 sticky top-0 z-20 shadow-lg">
         <a href="/" className="font-black text-2xl tracking-tight flex-shrink-0">
-          <span className="text-white">Recht</span><span className="text-[#F59E0B]">So</span>
+          <span className="text-white">IstDas</span><span className="text-[#F59E0B]">Erlaubt</span>
         </a>
         <div className="flex-1" />
         <a href="/feed" className="text-white/60 text-sm font-medium hover:text-white transition hidden sm:block">Feed</a>

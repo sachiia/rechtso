@@ -4,7 +4,7 @@ export default function Home() {
       {/* NAV */}
       <nav className="bg-[#0F2444] px-6 py-4 flex items-center justify-between">
         <div className="text-white font-bold text-xl tracking-tight">
-          <span className="text-white">Recht</span><span className="text-[#F59E0B]">So</span>
+          <span className="text-white">IstDas</span><span className="text-[#F59E0B]">Erlaubt</span>
         </div>
         <div className="flex gap-3">
           <a href="/feed" className="text-white/70 text-sm font-medium px-4 py-2 rounded-lg hover:text-white transition">
@@ -18,7 +18,7 @@ export default function Home() {
 
       {/* DISCLAIMER */}
       <div className="bg-amber-50 border-b border-amber-200 text-center text-xs text-amber-800 font-medium py-2 px-4">
-        ⚠️ RechtSo ist keine Rechtsberatung. Alle Inhalte dienen nur zur allgemeinen Information.
+        ⚠️ IstDasErlaubt ist keine Rechtsberatung. Alle Inhalte dienen nur zur allgemeinen Information.
       </div>
 
       {/* HERO */}
@@ -28,7 +28,7 @@ export default function Home() {
         </div>
         <h1 className="text-4xl sm:text-6xl font-black text-white leading-tight tracking-tight max-w-3xl mx-auto mb-6">
           Rechtsfragen?<br />
-          <span className="text-[#F59E0B]">RechtSo.</span>
+          <span className="text-[#F59E0B]">IstDasErlaubt.</span>
         </h1>
         <p className="text-white/60 text-lg max-w-xl mx-auto mb-10 leading-relaxed">
           Stelle deine Rechtsfrage anonym. Echte Anwälte antworten öffentlich — kostenlos. In Minuten.
@@ -120,10 +120,10 @@ export default function Home() {
       {/* FOOTER */}
       <footer className="bg-[#0F2444] px-6 py-12 text-center">
         <div className="text-white font-bold text-lg mb-2">
-          <span className="text-white">Recht</span><span className="text-[#F59E0B]">So</span>
+          <span className="text-white">IstDas</span><span className="text-[#F59E0B]">Erlaubt</span>
         </div>
         <p className="text-white/40 text-xs max-w-md mx-auto leading-relaxed mb-6">
-          RechtSo ist ein Informationsportal und keine Rechtsanwaltskanzlei. Die Inhalte auf dieser Plattform stellen keine Rechtsberatung im Sinne des RDG dar. Bitte konsultieren Sie für persönliche Rechtsfragen einen zugelassenen Rechtsanwalt.
+          IstDasErlaubt ist ein Informationsportal und keine Rechtsanwaltskanzlei. Die Inhalte auf dieser Plattform stellen keine Rechtsberatung im Sinne des RDG dar. Bitte konsultieren Sie für persönliche Rechtsfragen einen zugelassenen Rechtsanwalt.
         </p>
         <div className="flex justify-center gap-6 text-white/40 text-xs">
           <a href="#" className="hover:text-white/70">Impressum</a>

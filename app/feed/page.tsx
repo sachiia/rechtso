@@ -53,14 +53,14 @@ const Icons = {
       <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
     </svg>
   ),
+  ArrowRight: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+    </svg>
+  ),
   Scale: () => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="12" y1="3" x2="12" y2="21"/><path d="M3 6l9-3 9 3"/><path d="M6 15l-3-9 9 3"/><path d="M18 15l3-9-9 3"/><path d="M3 15h6"/><path d="M15 15h6"/>
-    </svg>
-  ),
-  TrendingUp: () => (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
     </svg>
   ),
   Send: () => (
@@ -108,6 +108,11 @@ const Icons = {
       <circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>
     </svg>
   ),
+  ThumbsUp: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/>
+    </svg>
+  ),
 };
 
 const categories = ["Alle", "Mietrecht", "Arbeitsrecht", "Verkehrsrecht", "Abmahnung", "Vertragsrecht", "Familienrecht"];
@@ -148,6 +153,18 @@ const blurbs: Record<string, { text: string; checklist: string[] }> = {
   },
 };
 
+// Detect personal info (RDG compliance)
+function detectPersonalInfo(text: string): boolean {
+  const patterns = [
+    /\b[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}\b/,           // Email address
+    /(\+49|0\d{2,4})[\s\-\d]{5,}/,                   // German phone number
+    /\b\d{5}\b/,                                       // Postcode (PLZ)
+    /\b(mein name ist|ich heiße|ich bin [A-ZÄÖÜ])/i, // Name introduction
+    /\b[A-ZÄÖÜ][a-zäöüß]+(straße|str\.|weg|gasse|platz|allee)\b/i, // Street address
+  ];
+  return patterns.some(p => p.test(text));
+}
+
 type Post = {
   id: string;
   handle: string;
@@ -160,6 +177,7 @@ type Post = {
 type Profile = {
   id: string;
   handle: string;
+  role: string;
   questions_this_month: number;
   month_year: string;
 };
@@ -190,17 +208,25 @@ export default function Feed() {
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("Alle");
   const [showModal, setShowModal] = useState(false);
-  const [selectedCat, setSelectedCat] = useState("");
-  const [questionText, setQuestionText] = useState("");
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [submitted, setSubmitted] = useState(false);
+
+  // 3-step question form state
+  const [modalStep, setModalStep] = useState<1 | 2 | 3>(1);
+  const [selectedCat, setSelectedCat] = useState("");
+  const [questionTitle, setQuestionTitle] = useState("");
+  const [questionBody, setQuestionBody] = useState("");
+  const [confirmRdg, setConfirmRdg] = useState(false);
+  const [personalInfoWarning, setPersonalInfoWarning] = useState(false);
+
+  // Me Too tracking (local state for MVP)
+  const [metoos, setMetoos] = useState<Record<string, boolean>>({});
 
   // ── AUTH STATE ──
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
-  // 'credentials' = email/password step, 'handle' = choose handle step
   const [authStep, setAuthStep] = useState<'credentials' | 'handle'>('credentials');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
@@ -212,6 +238,7 @@ export default function Feed() {
   const [handleLoading, setHandleLoading] = useState(false);
 
   const quota = profile ? Math.max(0, 2 - profile.questions_this_month) : 2;
+  const isLawyer = profile?.role === 'lawyer';
 
   useEffect(() => {
     fetchPosts();
@@ -258,7 +285,6 @@ export default function Feed() {
       setAuthLoading(false);
       return;
     }
-    // Move to handle selection step
     if (data.user) {
       await fetchProfile(data.user.id);
       setAuthStep('handle');
@@ -282,10 +308,8 @@ export default function Feed() {
     if (trimmed.length > 24) { setHandleError('Maximal 24 Zeichen.'); return; }
     setHandleLoading(true);
     setHandleError('');
-    // Check uniqueness
     const { data: existing } = await supabase.from('profiles').select('id').eq('handle', trimmed).maybeSingle();
     if (existing) { setHandleError('Dieser Name ist bereits vergeben. Bitte wähle einen anderen.'); setHandleLoading(false); return; }
-    // Update profile
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
       await supabase.from('profiles').update({ handle: trimmed }).eq('id', session.user.id);
@@ -305,23 +329,40 @@ export default function Feed() {
 
   function openQuestionModal(cat?: string) {
     if (!user) { setAuthMode('signup'); setAuthStep('credentials'); setShowAuthModal(true); return; }
-    if (cat) setSelectedCat(cat);
+    if (cat) { setSelectedCat(cat); setModalStep(2); } else { setModalStep(1); }
+    setQuestionTitle('');
+    setQuestionBody('');
+    setConfirmRdg(false);
+    setPersonalInfoWarning(false);
     setShowModal(true);
   }
 
+  function handleBodyChange(val: string) {
+    setQuestionBody(val);
+    setPersonalInfoWarning(detectPersonalInfo(val));
+  }
+
   async function submitQuestion() {
-    if (!questionText.trim() || !selectedCat || !user || !profile) return;
+    if (!questionTitle.trim() || !selectedCat || !user || !profile || !confirmRdg) return;
     if (profile.questions_this_month >= 2) return;
-    await supabase.from('posts').insert({ handle: profile.handle, category: selectedCat, content: questionText });
+    const content = questionTitle.trim() + (questionBody.trim() ? '\n\n' + questionBody.trim() : '');
+    await supabase.from('posts').insert({ handle: profile.handle, category: selectedCat, content });
     const currentMonth = new Date().toISOString().slice(0, 7);
     await supabase.from('profiles').update({ questions_this_month: profile.questions_this_month + 1, month_year: currentMonth }).eq('id', user.id);
     setProfile(p => p ? { ...p, questions_this_month: p.questions_this_month + 1 } : null);
     setShowModal(false);
-    setQuestionText('');
+    setQuestionTitle('');
+    setQuestionBody('');
     setSelectedCat('');
+    setConfirmRdg(false);
     setSubmitted(true);
     fetchPosts();
     setTimeout(() => setSubmitted(false), 4000);
+  }
+
+  function toggleMetoo(postId: string) {
+    if (!user) { setAuthMode('signup'); setAuthStep('credentials'); setShowAuthModal(true); return; }
+    setMetoos(prev => ({ ...prev, [postId]: !prev[postId] }));
   }
 
   const filtered = activeCategory === "Alle" ? posts : posts.filter(p => p.category === activeCategory);
@@ -333,7 +374,7 @@ export default function Feed() {
     return (
       <div className="min-h-screen bg-[#f0f2f5] font-sans">
         <nav className="bg-[#0F2444] px-8 py-4 flex items-center gap-5 sticky top-0 z-20 shadow-lg">
-          <span className="font-black text-2xl tracking-tight"><span className="text-white">Recht</span><span className="text-[#F59E0B]">So</span></span>
+          <span className="font-black text-2xl tracking-tight"><span className="text-white">IstDas</span><span className="text-[#F59E0B]">Erlaubt</span></span>
         </nav>
         <div className="bg-amber-50 border-b border-amber-200 text-center text-sm text-amber-800 font-medium py-2.5 px-4 flex items-center justify-center gap-2">
           <Icons.AlertTriangle /><span>Dies ist keine Rechtsberatung. Bitte konsultieren Sie einen zugelassenen Rechtsanwalt.</span>
@@ -343,7 +384,7 @@ export default function Feed() {
             <Icons.ArrowLeft /> Zurück zum Feed
           </button>
           <div className="bg-[#0F2444] rounded-2xl p-7 mb-6 text-white">
-            <div className="text-xs text-white/40 font-bold uppercase tracking-widest mb-2">RS-{selectedPost.id.slice(0, 8).toUpperCase()}</div>
+            <div className="text-xs text-white/40 font-bold uppercase tracking-widest mb-2">IDE-{selectedPost.id.slice(0, 8).toUpperCase()}</div>
             <div className="font-black text-3xl mb-4">{selectedPost.category}</div>
             <span className={`text-sm font-bold px-4 py-1.5 rounded-full inline-flex items-center gap-2 ${cfg.bg} ${cfg.text}`}>
               <CategoryIcon category={selectedPost.category} />{selectedPost.category}
@@ -386,10 +427,13 @@ export default function Feed() {
                   </div>
                 </div>
               </div>
-              <p className="text-slate-600 text-base leading-relaxed border-t border-slate-100 pt-5 mb-5">
+              <p className="text-slate-600 text-base leading-relaxed border-t border-slate-100 pt-5 mb-4">
                 Allgemein gilt: Ohne vollständige Akteneinsicht und Prüfung der konkreten Unterlagen lässt sich keine fundierte Einschätzung abgeben.
               </p>
-              <button className="bg-[#0D9488] text-white text-sm font-bold px-6 py-3 rounded-xl hover:bg-teal-700 transition flex items-center gap-2">
+              <p className="text-slate-400 text-xs leading-relaxed border-t border-slate-100 pt-3 italic">
+                ⚖️ Diese Antwort stellt eine unverbindliche, pauschale Ersteinschätzung dar und bildet kein formelles Mandatsverhältnis nach dem RVG. Für eine konkrete Rechtsberatung unter Haftungsausschluss nutzen Sie bitte das direkte Kontaktprofil des Anwalts.
+              </p>
+              <button className="mt-4 bg-[#0D9488] text-white text-sm font-bold px-6 py-3 rounded-xl hover:bg-teal-700 transition flex items-center gap-2">
                 <Icons.Send />Privates Gespräch anfragen
               </button>
             </div>
@@ -409,7 +453,7 @@ export default function Feed() {
   return (
     <div className="min-h-screen bg-[#f0f2f5] font-sans">
       <nav className="bg-[#0F2444] px-8 py-4 flex items-center gap-5 sticky top-0 z-20 shadow-lg">
-        <span className="font-black text-2xl tracking-tight flex-shrink-0"><span className="text-white">Recht</span><span className="text-[#F59E0B]">So</span></span>
+        <span className="font-black text-2xl tracking-tight flex-shrink-0"><span className="text-white">IstDas</span><span className="text-[#F59E0B]">Erlaubt</span></span>
         <div className="flex-1 relative">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40"><Icons.Search /></span>
           <input className="w-full bg-white/10 border border-white/20 rounded-xl pl-10 pr-4 py-2.5 text-white text-base placeholder-white/40 outline-none focus:bg-white/20 transition" placeholder="Mietrecht, Abmahnung, Kündigung..." />
@@ -488,7 +532,6 @@ export default function Feed() {
               })}
             </div>
           </div>
-
         </aside>
 
         <main className="flex-1 min-w-0">
@@ -558,10 +601,10 @@ export default function Feed() {
             <div className="space-y-4">
               {filtered.map(post => {
                 const cfg = categoryConfig[post.category] || { color: "text-slate-600", border: "border-l-slate-300", bg: "bg-slate-50", text: "text-slate-600" };
+                const hasMetoo = metoos[post.id];
                 return (
-                  <div key={post.id} onClick={() => setSelectedPost(post)}
-                    className={`bg-white rounded-2xl border border-slate-200 border-l-4 ${cfg.border} p-6 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 group`}>
-                    <div className="flex items-start justify-between gap-4 mb-4">
+                  <div key={post.id} className={`bg-white rounded-2xl border border-slate-200 border-l-4 ${cfg.border} p-6 group`}>
+                    <div className="flex items-start justify-between gap-4 mb-4 cursor-pointer" onClick={() => setSelectedPost(post)}>
                       <div className="flex items-center gap-3">
                         <div className="w-11 h-11 bg-[#0F2444] rounded-xl flex items-center justify-center text-white text-sm font-black flex-shrink-0">
                           {post.handle.slice(0, 2).toUpperCase()}
@@ -575,10 +618,27 @@ export default function Feed() {
                         <CategoryIcon category={post.category} />{post.category}
                       </span>
                     </div>
-                    <p className="text-slate-600 text-base leading-relaxed mb-5 line-clamp-2 group-hover:text-slate-800 transition-colors">{post.content}</p>
-                    <span className={`text-sm font-semibold px-4 py-2 rounded-xl flex items-center gap-2 w-fit ${post.answers_count > 0 ? "bg-teal-50 text-teal-700 border border-teal-200" : "bg-slate-50 text-slate-400 border border-slate-200"}`}>
-                      <Icons.Chat />{post.answers_count} Anwaltsantworten
-                    </span>
+                    <p onClick={() => setSelectedPost(post)} className="text-slate-600 text-base leading-relaxed mb-4 line-clamp-2 group-hover:text-slate-800 transition-colors cursor-pointer">{post.content}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button onClick={() => setSelectedPost(post)}
+                        className={`text-sm font-semibold px-4 py-2 rounded-xl flex items-center gap-2 ${post.answers_count > 0 ? "bg-teal-50 text-teal-700 border border-teal-200" : "bg-slate-50 text-slate-400 border border-slate-200"}`}>
+                        <Icons.Chat />{post.answers_count} Anwaltsantworten
+                      </button>
+
+                      {/* Role-based interaction */}
+                      {isLawyer ? (
+                        <a href="/pro"
+                          className="text-sm font-semibold px-4 py-2 rounded-xl flex items-center gap-2 bg-[#0F2444] text-white hover:bg-[#1a3a6b] transition border border-[#0F2444]">
+                          <Icons.Chat />Kommentieren (Pro)
+                        </a>
+                      ) : (
+                        <button onClick={() => toggleMetoo(post.id)}
+                          className={`text-sm font-semibold px-4 py-2 rounded-xl flex items-center gap-2 transition border ${hasMetoo ? "bg-[#F59E0B] text-[#0F2444] border-[#F59E0B]" : "bg-white text-slate-500 border-slate-200 hover:border-[#F59E0B] hover:text-[#F59E0B]"}`}>
+                          <Icons.ThumbsUp />
+                          {hasMetoo ? 'Ich auch! ✓' : 'Ich auch!'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -773,7 +833,7 @@ export default function Feed() {
                   <Icons.Smile />
                 </div>
                 <div className="font-black text-[#0F2444] text-2xl text-center mb-2">Wähle deinen Namen</div>
-                <p className="text-slate-400 text-sm text-center mb-2">Dein anonymer Name auf RechtSo. Du kannst ihn jederzeit ändern.</p>
+                <p className="text-slate-400 text-sm text-center mb-2">Dein anonymer Name auf IstDasErlaubt. Du kannst ihn jederzeit ändern.</p>
                 <p className="text-slate-300 text-xs text-center mb-6">Kein Klarname empfohlen — bleib anonym.</p>
 
                 <div className="bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 mb-4 text-center">
@@ -813,44 +873,151 @@ export default function Feed() {
         </div>
       )}
 
-      {/* ── QUESTION MODAL ── */}
+      {/* ── 3-STEP QUESTION MODAL ── */}
       {showModal && (
         <div className="fixed inset-0 bg-[#0F2444]/60 z-30 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-lg p-7 max-h-[90vh] overflow-y-auto shadow-2xl">
-            <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-6 sm:hidden" />
-            <div className="font-black text-[#0F2444] text-2xl mb-1">Rechtsfrage stellen</div>
-            <div className="text-slate-400 text-sm mb-6">
-              Als <strong className="text-[#0F2444]">{profile?.handle}</strong> · noch <strong className="text-[#0F2444]">{quota}</strong> Fragen diesen Monat
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden">
+            <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mt-5 sm:hidden" />
+
+            {/* Step indicator */}
+            <div className="flex items-center gap-2 px-7 pt-6 pb-4 border-b border-slate-100">
+              {[1,2,3].map(s => (
+                <React.Fragment key={s}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black transition-all ${
+                    modalStep === s ? 'bg-[#0F2444] text-white scale-110' :
+                    modalStep > s ? 'bg-teal-500 text-white' : 'bg-slate-100 text-slate-400'
+                  }`}>
+                    {modalStep > s ? <Icons.Check /> : s}
+                  </div>
+                  {s < 3 && <div className={`flex-1 h-1 rounded-full transition-all ${modalStep > s ? 'bg-teal-500' : 'bg-slate-100'}`} />}
+                </React.Fragment>
+              ))}
+              <span className="ml-3 text-xs font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">
+                {modalStep === 1 ? 'Kategorie' : modalStep === 2 ? 'Ihre Frage' : 'Bestätigung'}
+              </span>
             </div>
-            <p className="text-xs font-bold text-slate-500 mb-3 uppercase tracking-widest">Rechtsgebiet wählen:</p>
-            <div className="grid grid-cols-2 gap-2.5 mb-6">
-              {["Mietrecht", "Arbeitsrecht", "Verkehrsrecht", "Abmahnung", "Vertragsrecht", "Familienrecht"].map(cat => {
-                const cfg = categoryConfig[cat];
-                return (
-                  <button key={cat} onClick={() => setSelectedCat(cat)}
-                    className={`py-3.5 rounded-xl text-sm font-bold border-2 transition flex items-center justify-center gap-2 ${selectedCat === cat ? "bg-[#0F2444] text-white border-[#0F2444]" : "bg-white text-slate-500 border-slate-200 hover:border-[#0F2444]"}`}>
-                    <span className={selectedCat === cat ? "text-white/70" : cfg.color}><CategoryIcon category={cat} /></span>
-                    {cat}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="text-xs font-bold text-slate-500 mb-3 uppercase tracking-widest">Ihre Situation:</p>
-            <textarea value={questionText} onChange={e => setQuestionText(e.target.value)}
-              className="w-full border-2 border-slate-200 rounded-xl p-4 text-base font-sans resize-none outline-none min-h-36 text-slate-700 focus:border-[#0F2444] transition leading-relaxed"
-              placeholder="Beschreiben Sie Ihre Situation so genau wie möglich. Keine persönlichen Daten angeben." />
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 my-5 text-sm text-amber-800 flex items-start gap-2">
-              <span className="flex-shrink-0 mt-0.5"><Icons.AlertTriangle /></span>
-              <span>Ihre Frage wird anonym veröffentlicht. Dies ist keine Rechtsberatung.</span>
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => setShowModal(false)} className="flex-1 py-3.5 border-2 border-slate-200 rounded-xl text-slate-500 font-semibold text-base hover:bg-slate-50 transition">
-                Abbrechen
-              </button>
-              <button onClick={submitQuestion} disabled={!questionText.trim() || !selectedCat}
-                className="flex-[2] py-3.5 bg-[#0F2444] text-white font-black rounded-xl text-base hover:bg-[#1a3a6b] transition disabled:opacity-40 flex items-center justify-center gap-2">
-                <Icons.Send />Anonym veröffentlichen
-              </button>
+
+            <div className="p-7 max-h-[70vh] overflow-y-auto">
+
+              {/* STEP 1: Category */}
+              {modalStep === 1 && (
+                <>
+                  <div className="font-black text-[#0F2444] text-2xl mb-1">Rechtsgebiet wählen</div>
+                  <p className="text-slate-400 text-sm mb-6">In welchem Bereich liegt Ihre Frage?</p>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {["Mietrecht", "Arbeitsrecht", "Verkehrsrecht", "Abmahnung", "Vertragsrecht", "Familienrecht"].map(cat => {
+                      const cfg = categoryConfig[cat];
+                      return (
+                        <button key={cat} onClick={() => { setSelectedCat(cat); setModalStep(2); }}
+                          className={`py-4 rounded-xl text-sm font-bold border-2 transition flex flex-col items-center justify-center gap-2 ${selectedCat === cat ? "bg-[#0F2444] text-white border-[#0F2444]" : "bg-white text-slate-500 border-slate-200 hover:border-[#0F2444]"}`}>
+                          <span className={selectedCat === cat ? "text-white/70" : cfg.color}><CategoryIcon category={cat} /></span>
+                          {cat}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button onClick={() => setShowModal(false)} className="w-full mt-5 py-3 text-slate-400 text-sm hover:text-slate-600 transition">Abbrechen</button>
+                </>
+              )}
+
+              {/* STEP 2: Question */}
+              {modalStep === 2 && (
+                <>
+                  <div className="font-black text-[#0F2444] text-2xl mb-1">Ihre Situation</div>
+                  <p className="text-slate-400 text-sm mb-5">
+                    Als <strong className="text-[#0F2444]">{profile?.handle}</strong> · Kategorie: <span className={`font-bold ${categoryConfig[selectedCat]?.text}`}>{selectedCat}</span>
+                  </p>
+
+                  <div className="mb-4">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">Kernfrage (max. 100 Zeichen)</label>
+                    <input
+                      type="text"
+                      value={questionTitle}
+                      onChange={e => setQuestionTitle(e.target.value.slice(0, 100))}
+                      className="w-full border-2 border-slate-200 rounded-xl px-4 py-3.5 text-base outline-none focus:border-[#0F2444] transition text-slate-700 font-semibold"
+                      placeholder="Darf mein Vermieter die Miete einfach erhöhen?"
+                    />
+                    <div className="text-right text-xs text-slate-300 mt-1">{questionTitle.length}/100</div>
+                  </div>
+
+                  <div className="mb-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">Details (optional)</label>
+                    <textarea
+                      value={questionBody}
+                      onChange={e => handleBodyChange(e.target.value)}
+                      className="w-full border-2 border-slate-200 rounded-xl p-4 text-base font-sans resize-none outline-none min-h-32 text-slate-700 focus:border-[#0F2444] transition leading-relaxed"
+                      placeholder="Person A hat einen Mietvertrag aus 2019. Der Vermieter fordert jetzt eine Erhöhung um 15%..."
+                    />
+                  </div>
+
+                  {/* Personal info warning */}
+                  {personalInfoWarning && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-sm text-red-700 flex items-start gap-2">
+                      <span className="flex-shrink-0 mt-0.5"><Icons.AlertTriangle /></span>
+                      <span><strong>Persönliche Daten erkannt!</strong> Ihre Frage enthält möglicherweise personenbezogene Daten (E-Mail, Telefon, Name oder Adresse). Bitte formulieren Sie die Situation hypothetisch — z.B. „Person A" statt Ihrem Namen.</span>
+                    </div>
+                  )}
+
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-5 text-xs text-amber-800 flex items-start gap-2">
+                    <span className="flex-shrink-0 mt-0.5"><Icons.AlertTriangle /></span>
+                    <span>Ihre Frage wird anonym veröffentlicht. Keine persönlichen Daten angeben.</span>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button onClick={() => setModalStep(1)} className="flex items-center gap-1.5 px-4 py-3.5 border-2 border-slate-200 rounded-xl text-slate-500 font-semibold text-sm hover:bg-slate-50 transition">
+                      <Icons.ArrowLeft />Zurück
+                    </button>
+                    <button onClick={() => setModalStep(3)} disabled={!questionTitle.trim() || personalInfoWarning}
+                      className="flex-1 py-3.5 bg-[#0F2444] text-white font-black rounded-xl text-base hover:bg-[#1a3a6b] transition disabled:opacity-40 flex items-center justify-center gap-2">
+                      Weiter <Icons.ArrowRight />
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* STEP 3: Confirm */}
+              {modalStep === 3 && (
+                <>
+                  <div className="font-black text-[#0F2444] text-2xl mb-1">Bestätigung</div>
+                  <p className="text-slate-400 text-sm mb-5">Bitte lesen und bestätigen Sie:</p>
+
+                  {/* Summary */}
+                  <div className={`border-l-4 ${categoryConfig[selectedCat]?.border || 'border-l-slate-300'} bg-slate-50 rounded-xl p-4 mb-5`}>
+                    <div className={`text-xs font-bold uppercase tracking-widest mb-1 ${categoryConfig[selectedCat]?.text}`}>{selectedCat}</div>
+                    <div className="font-bold text-[#0F2444] text-sm leading-snug">{questionTitle}</div>
+                    {questionBody && <p className="text-slate-500 text-xs mt-1 line-clamp-2">{questionBody}</p>}
+                  </div>
+
+                  {/* Mandatory RDG checkbox */}
+                  <label className="flex items-start gap-3 cursor-pointer group mb-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
+                    <div className="relative mt-0.5 flex-shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={confirmRdg}
+                        onChange={e => setConfirmRdg(e.target.checked)}
+                        className="sr-only"
+                      />
+                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${confirmRdg ? 'bg-[#0F2444] border-[#0F2444]' : 'border-slate-300 bg-white group-hover:border-[#0F2444]'}`}>
+                        {confirmRdg && <Icons.Check />}
+                      </div>
+                    </div>
+                    <span className="text-xs text-blue-900 leading-relaxed">
+                      Ich bestätige, dass meine Frage rein hypothetisch formuliert ist und keine personenbezogenen Daten enthält. Ich verstehe, dass dies <strong>keine Rechtsberatung im Sinne des RDG</strong> darstellt und die Antworten keine rechtliche Beratung ersetzen.
+                    </span>
+                  </label>
+
+                  <div className="flex gap-3">
+                    <button onClick={() => setModalStep(2)} className="flex items-center gap-1.5 px-4 py-3.5 border-2 border-slate-200 rounded-xl text-slate-500 font-semibold text-sm hover:bg-slate-50 transition">
+                      <Icons.ArrowLeft />Zurück
+                    </button>
+                    <button onClick={submitQuestion} disabled={!confirmRdg || !questionTitle.trim()}
+                      className="flex-1 py-3.5 bg-[#0F2444] text-white font-black rounded-xl text-base hover:bg-[#1a3a6b] transition disabled:opacity-40 flex items-center justify-center gap-2">
+                      <Icons.Send />Anonym veröffentlichen
+                    </button>
+                  </div>
+                  <button onClick={() => setShowModal(false)} className="w-full mt-3 py-2 text-slate-400 text-sm hover:text-slate-600 transition">Abbrechen</button>
+                </>
+              )}
             </div>
           </div>
         </div>

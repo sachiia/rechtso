@@ -86,7 +86,7 @@ export default function LawyerProfilePage() {
       {/* NAV */}
       <nav className="bg-[#0F2444] px-8 py-4 flex items-center gap-5 sticky top-0 z-20 shadow-lg">
         <a href="/" className="font-black text-2xl tracking-tight flex-shrink-0">
-          <span className="text-white">Recht</span><span className="text-[#F59E0B]">So</span>
+          <span className="text-white">IstDas</span><span className="text-[#F59E0B]">Erlaubt</span>
         </a>
         <a href="/anwalt" className="flex items-center gap-2 text-white/60 hover:text-white text-sm font-medium transition">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -253,7 +253,7 @@ export default function LawyerProfilePage() {
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0 mt-0.5">
             <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
           </svg>
-          RechtSo vermittelt keine Rechtsgespräche. Die Kontaktaufnahme findet außerhalb der Plattform statt.
+          IstDasErlaubt vermittelt keine Rechtsgespräche. Die Kontaktaufnahme findet außerhalb der Plattform statt.
         </div>
 
         {/* CTA */}
@@ -292,7 +292,7 @@ export default function LawyerProfilePage() {
                 </a>
               )}
               {lawyer.contact_email && (
-                <a href={`mailto:${lawyer.contact_email}?subject=Kontaktanfrage über RechtSo`}
+                <a href={`mailto:${lawyer.contact_email}?subject=Kontaktanfrage über IstDasErlaubt`}
                   className="flex items-center gap-4 bg-blue-50 border border-blue-200 rounded-2xl p-4 hover:bg-blue-100 transition group">
                   <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center flex-shrink-0">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -312,7 +312,7 @@ export default function LawyerProfilePage() {
               )}
             </div>
             <div className="mt-4 bg-amber-50 border border-amber-100 rounded-xl p-3 text-xs text-amber-700">
-              RechtSo ist nur ein Verzeichnis. Rechtsgespräche finden ausschließlich direkt zwischen Ihnen und dem Anwalt statt.
+              IstDasErlaubt ist nur ein Verzeichnis. Rechtsgespräche finden ausschließlich direkt zwischen Ihnen und dem Anwalt statt.
             </div>
             <button onClick={() => setShowContact(false)}
               className="w-full mt-4 py-3.5 border-2 border-slate-200 text-slate-500 font-bold rounded-xl hover:bg-slate-50 transition text-sm">
